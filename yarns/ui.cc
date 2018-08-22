@@ -471,6 +471,8 @@ void Ui::OnClickOverdubbing(const Event& e) {
     mutable_recording_part()->RecordStep(SequencerStep(push_it_note_, 100));
   } else {
     push_it_ = true;
+    //TODO what if this step is a rest/tie?
+    push_it_note_ = seq_.step[seq_rec_step_].data[0];
   }
 }
 
@@ -519,7 +521,6 @@ void Ui::OnIncrementOverdubbing(const stmlib::Event& e) {
   if (push_it_) {
     push_it_note_ += e.data;
     CONSTRAIN(push_it_note_, 0, 127);
-    mutable_recording_part()->ModifyNoteAtCurrentStep(push_it_note_);
   } else {
     int8_t step = recording_part().recording_step();
     step += e.data;

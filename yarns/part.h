@@ -243,7 +243,7 @@ class Part {
   inline void RecordStep(const SequencerStep& step) {
     if (seq_recording_) {
       seq_.step[seq_rec_step_].data[0] = step.data[0];
-      seq_.step[seq_rec_step_].data[1] |= step.data[1];
+      seq_.step[seq_rec_step_].data[1] = step.data[1];
       ++seq_rec_step_;
       uint8_t last_step = seq_overdubbing_ ? seq_.num_steps : kNumSteps;
       // Extend sequence.
@@ -257,12 +257,6 @@ class Part {
     }
   }
 
-  inline void ModifyNoteAtCurrentStep(uint8_t note) {
-    if (seq_recording_) {
-      seq_.step[seq_rec_step_].data[0] = note;
-    }
-  }
-  
   inline void RecordStep(SequencerStepFlags flag) {
     RecordStep(SequencerStep(flag, 0));
   }
