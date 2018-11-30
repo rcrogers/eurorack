@@ -701,14 +701,14 @@ void Ui::DoEvents() {
     refresh_display = true;
     scroll_display = true;
   }
-  if (queue_.idle_time() > 600) {
+  if (queue_.idle_time() > 900) {
     if (!display_.scrolling()) {
       factory_testing_display_ = UI_FACTORY_TESTING_DISPLAY_EMPTY;
       refresh_display = true;
     }
   }
   uint8_t recording_step_index = recording_part().recording_step();
-  if (queue_.idle_time() > 400) {
+  if (queue_.idle_time() > 600) {
     if (multi.latched()) {
       display_.Print("//");
     } else if (!push_it_ && (mode_ == UI_MODE_RECORDING || mode_ == UI_MODE_OVERDUBBING)) {
