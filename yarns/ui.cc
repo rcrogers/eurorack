@@ -318,10 +318,7 @@ void Ui::PrintRecordingStatus() {
   if (push_it_) {
     PrintPushItNote();
   } else {
-    uint8_t n = recording_part().recording_step() + 1;
-    strcpy(buffer_, "00");
-    buffer_[0] += n / 10;
-    buffer_[1] += n % 10;
+    Settings::PrintInteger(buffer_, recording_part().recording_step() + 1);
     display_.Print(buffer_);
   }
 }
