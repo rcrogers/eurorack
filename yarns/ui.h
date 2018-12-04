@@ -184,6 +184,7 @@ class Ui {
   void PrintCalibrationNote();
   void PrintRecordingPart();
   void PrintRecordingStatus();
+  void PrintNote(int16_t note);
   void PrintPushItNote();
   void PrintLearning();
   void PrintFactoryTesting();
@@ -237,6 +238,7 @@ class Ui {
   int8_t recording_part_;
   bool push_it_;
   int16_t push_it_note_;
+  uint8_t displayed_recording_step_index_;
   
   UiFactoryTestingDisplay factory_testing_display_;
   int8_t factory_testing_number_;

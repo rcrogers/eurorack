@@ -87,6 +87,12 @@ enum TuningSystem {
   TUNING_SYSTEM_LAST
 };
 
+enum SequencerInputResponse {
+  SEQUENCER_INPUT_RESPONSE_TRANSPOSE,
+  SEQUENCER_INPUT_RESPONSE_OVERRIDE,
+  SEQUENCER_INPUT_RESPONSE_OFF
+};
+
 struct MidiSettings {
   uint8_t channel;
   uint8_t min_note;
@@ -152,7 +158,8 @@ enum PartSetting {
   PART_SEQUENCER_ARP_PATTERN,
   PART_SEQUENCER_EUCLIDEAN_LENGTH,
   PART_SEQUENCER_EUCLIDEAN_FILL,
-  PART_SEQUENCER_EUCLIDEAN_ROTATE
+  PART_SEQUENCER_EUCLIDEAN_ROTATE,
+  PART_SEQUENCER_INPUT_RESPONSE
 };
 
 enum SequencerStepFlags {
@@ -194,6 +201,7 @@ struct SequencerSettings {
   uint8_t euclidean_length;
   uint8_t euclidean_fill;
   uint8_t euclidean_rotate;
+  uint8_t input_response;
   uint8_t num_steps;
   SequencerStep step[kNumSteps];
   uint8_t padding[7];
@@ -322,6 +330,10 @@ class Part {
   inline bool recording() const { return seq_recording_; }
   inline bool overdubbing() const { return seq_overdubbing_; }
   inline uint8_t recording_step() const { return seq_rec_step_; }
+  inline uint8_t playing_step() const {
+    // correct for preemptive increment
+    return (seq_.num_steps + ((seq_step_ - 1) % seq_.num_steps)) % seq_.num_steps;
+  }
   inline uint8_t num_steps() const { return seq_.num_steps; }
   inline void set_recording_step(uint8_t n) { seq_rec_step_ = n; }
   
@@ -339,6 +351,10 @@ class Part {
     release_latched_keys_on_next_note_on_ = true;
   }
   
+  inline void SetMultiIsRecording(bool b) {
+    multi_is_recording_ = b;
+  }
+
   void set_siblings(bool has_siblings) {
     has_siblings_ = has_siblings;
   }
@@ -396,6 +412,8 @@ class Part {
   
   bool has_siblings_;
   
+  bool multi_is_recording_;
+
   DISALLOW_COPY_AND_ASSIGN(Part);
 };
 
