@@ -198,6 +198,7 @@ void Multi::Clock() {
 }
 
 void Multi::Start(bool started_by_keyboard) {
+  // TODO remove recording_ check?
   if (running_ || recording_) {
     return;
   }
