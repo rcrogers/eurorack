@@ -268,6 +268,10 @@ class Part {
   }
   
   inline bool accepts(uint8_t channel) const {
+    if (multi_is_recording_ && !seq_recording_) {
+      // if another part is recording
+      return false;
+    }
     return midi_.channel == 0x10 || midi_.channel == channel;
   }
   
