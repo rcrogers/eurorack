@@ -181,7 +181,8 @@ void Voice::NoteOn(
     int16_t note,
     uint8_t velocity,
     uint8_t portamento,
-    bool trigger) {
+    bool trigger,
+    uint8_t gate_length) {
   note_source_ = note_portamento_;  
   note_target_ = note;
   if (!portamento) {
@@ -210,6 +211,7 @@ void Voice::NoteOn(
     trigger_phase_increment_ = lut_portamento_increments[trigger_duration_];
   }
   gate_ = true;
+  gate_length_counter_ = gate_length;
 }
 
 void Voice::NoteOff() {

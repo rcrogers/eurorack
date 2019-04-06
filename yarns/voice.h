@@ -114,7 +114,7 @@ class Voice {
 
   void Calibrate(uint16_t* calibrated_dac_code);
   void Refresh();
-  void NoteOn(int16_t note, uint8_t velocity, uint8_t portamento, bool trigger);
+  void NoteOn(int16_t note, uint8_t velocity, uint8_t portamento, bool trigger, uint8_t gate_length);
   void NoteOff();
   void ControlChange(uint8_t controller, uint8_t value);
   void PitchBend(uint16_t pitch_bend) {
@@ -243,6 +243,7 @@ class Voice {
   int32_t note_;
   int32_t tuning_;
   bool gate_;
+  uint16_t gate_length_counter_;
   
   bool dirty_;  // Set to true when the calibration settings have changed.
   uint16_t note_dac_code_;

@@ -502,7 +502,8 @@ void Part::DispatchSortedNotes(bool unison) {
           Tune(mono_allocator_.sorted_note(index).note),
           mono_allocator_.sorted_note(index).velocity,
           voicing_.portamento,
-          !voice_[i]->gate_on());
+          !voice_[i]->gate_on(),
+          gate_length_);
       active_note_[i] = mono_allocator_.sorted_note(index).note;
     } else {
       voice_[i]->NoteOff();
@@ -531,7 +532,8 @@ void Part::InternalNoteOn(uint8_t note, uint8_t velocity) {
             Tune(after.note),
             after.velocity,
             (voicing_.legato_mode == 1) && !legato ? 0 : voicing_.portamento,
-            (voicing_.legato_mode == 0) || !legato);
+            (voicing_.legato_mode == 0) || !legato,
+            gate_length_);
       }
     }
   } else if (voicing_.allocation_mode == VOICE_ALLOCATION_MODE_POLY_SORTED ||
@@ -578,7 +580,8 @@ void Part::InternalNoteOn(uint8_t note, uint8_t velocity) {
           Tune(note),
           velocity,
           voicing_.portamento,
-          true);
+          true,
+          gate_length_);
       active_note_[voice_index] = note;
     } else {
       // Polychaining forwarding.
@@ -627,7 +630,8 @@ void Part::InternalNoteOff(uint8_t note) {
             Tune(after.note),
             after.velocity,
             voicing_.portamento,
-            voicing_.legato_mode == 0);
+            voicing_.legato_mode == 0,
+            gate_length_);
       }
     }
   } else if (voicing_.allocation_mode == VOICE_ALLOCATION_MODE_POLY_SORTED ||
