@@ -237,13 +237,13 @@ const Setting Settings::settings_[] = {
     0, 0,
   },
   {
-    "V<", "VELO<",
+    "V>", "VELO>",
     SETTING_DOMAIN_PART, { PART_MIDI_MIN_VELOCITY, 0 },
     SETTING_UNIT_UINT8, 0, 127, NULL,
     0, 0,
   },
   {
-    "V>", "VELO>",
+    "V<", "VELO<",
     SETTING_DOMAIN_PART, { PART_MIDI_MAX_VELOCITY, 0 },
     SETTING_UNIT_UINT8, 0, 127, NULL,
     0, 0,
