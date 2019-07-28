@@ -189,11 +189,12 @@ void Voice::NoteOn(
     note_source_ = note_target_;
   }
   portamento_phase_ = 0;
-  if (portamento <= 50) {
+  uint32_t num_portamento_increments_per_shape = LUT_PORTAMENTO_INCREMENTS_SIZE >> 1;
+  if (portamento < num_portamento_increments_per_shape) {
     portamento_phase_increment_ = lut_portamento_increments[portamento << 1];
     portamento_exponential_shape_ = true;
   } else {
-    uint32_t base_increment = lut_portamento_increments[(portamento - 51) << 1];
+    uint32_t base_increment = lut_portamento_increments[(portamento - num_portamento_increments_per_shape) << 1];
     uint32_t delta = abs(note_target_ - note_source_) + 1;
     portamento_phase_increment_ = (1536 * (base_increment >> 11) / delta) << 11;
     CONSTRAIN(portamento_phase_increment_, 1, 2147483647);

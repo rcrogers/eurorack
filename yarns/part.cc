@@ -28,6 +28,8 @@
 
 #include "yarns/part.h"
 
+#include <cmath>
+
 #include <algorithm>
 
 #include "stmlib/midi/midi.h"
@@ -259,6 +261,7 @@ void Part::Clock() {
   
   if (voicing_.modulation_rate >= 100) {
     uint32_t num_ticks = clock_divisions[voicing_.modulation_rate - 100];
+    // TODO decipher this math -- how much to add so that the voices are in quadrature?
     uint32_t expected_phase = (lfo_counter_ % num_ticks) * 65536 / num_ticks;
     for (uint8_t i = 0; i < num_voices_; ++i) {
       voice_[i]->TapLfo(expected_phase << 16);
@@ -492,19 +495,23 @@ void Part::DispatchSortedNotes(bool unison) {
   uint8_t n = mono_allocator_.size();
   for (uint8_t i = 0; i < num_voices_; ++i) {
     uint8_t index = 0xff;
-    if (unison) {
+    if (unison && n < num_voices_) {
+      // distribute extra voices evenly among notes
       index = n ? (i * n / num_voices_) : 0xff;
     } else {
       index = i < mono_allocator_.size() ? i : 0xff;
     }
     if (index != 0xff) {
+      const NoteEntry& note_entry = mono_allocator_.note_by_priority(
+          static_cast<NoteStackFlags>(voicing_.allocation_priority),
+          index);
       voice_[i]->NoteOn(
-          Tune(mono_allocator_.sorted_note(index).note),
-          mono_allocator_.sorted_note(index).velocity,
+          Tune(note_entry.note),
+          note_entry.velocity,
           voicing_.portamento,
           !voice_[i]->gate_on(),
           gate_length_);
-      active_note_[i] = mono_allocator_.sorted_note(index).note;
+      active_note_[i] = note_entry.note;
     } else {
       voice_[i]->NoteOff();
       active_note_[i] = VOICE_ALLOCATION_NOT_FOUND;
@@ -666,7 +673,7 @@ void Part::TouchVoices() {
   CONSTRAIN(voicing_.aux_cv_2, 0, 7);
   for (uint8_t i = 0; i < num_voices_; ++i) {
     voice_[i]->set_pitch_bend_range(voicing_.pitch_bend_range);
-    voice_[i]->set_modulation_rate(voicing_.modulation_rate);
+    voice_[i]->set_modulation_rate(voicing_.modulation_rate * pow(1.123, (int) i));
     voice_[i]->set_vibrato_range(voicing_.vibrato_range);
     voice_[i]->set_vibrato_initial(voicing_.vibrato_initial);
     voice_[i]->set_vibrato_control_source(voicing_.vibrato_control_source);
