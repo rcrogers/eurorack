@@ -67,7 +67,7 @@ const char* const legato_mode_values[] = {
 };
 
 const char* const voicing_oscillator_values[] = {
-  "OF", "\x88\x88", "\x8C\x8C", "\x8C_", "/\\", "SINE", "**"
+  "OF", "\x88\x88", "\x8C\x8C", "\x8C_", "/\\", "SINE", "**", "MORPH"
 };
 
 const char* const voicing_allocation_priority_values[] = {
@@ -353,7 +353,7 @@ const Setting Settings::settings_[] = {
   {
     "OS", "OSCILLATOR",
     SETTING_DOMAIN_PART, { PART_VOICING_AUDIO_MODE, 0 },
-    SETTING_UNIT_ENUMERATION, 0, 6, voicing_oscillator_values,
+    SETTING_UNIT_ENUMERATION, 0, 7, voicing_oscillator_values,
     71, 23,
   },
   {

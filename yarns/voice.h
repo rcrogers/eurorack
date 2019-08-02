@@ -49,9 +49,12 @@ enum TriggerShape {
 enum AudioMode {
   AUDIO_MODE_OFF,
   AUDIO_MODE_SAW,
+  AUDIO_MODE_PULSE_25,
   AUDIO_MODE_SQUARE,
   AUDIO_MODE_TRIANGLE,
-  AUDIO_MODE_SINE
+  AUDIO_MODE_SINE,
+  AUDIO_MODE_NOISE,
+  AUDIO_MODE_MORPH
 };
 
 class Oscillator {
@@ -72,6 +75,7 @@ class Oscillator {
   void RenderSine(uint32_t phase_increment);
   void RenderSaw(uint32_t phase_increment);
   void RenderSquare(uint32_t phase_increment, uint32_t pw, bool integrate);
+  void RenderSawSquareMorph(uint32_t phase_increment, uint32_t pw, bool integrate);
 
   inline int32_t ThisBlepSample(uint32_t t) {
     if (t > 65535) {

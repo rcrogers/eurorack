@@ -375,6 +375,48 @@ void Oscillator::RenderSquare(
   phase_ = phase;
 }
 
+void Oscillator::RenderSawSquareMorph(
+    uint32_t phase_increment,
+    uint32_t pw,
+    bool integrate) {
+  uint32_t phase = phase_;
+  int32_t next_sample = next_sample_;
+  int32_t integrator_state = integrator_state_;
+  int16_t integrator_coefficient = phase_increment >> 18;
+  size_t size = kAudioBlockSize;
+
+  while (size--) {
+    int32_t this_sample = next_sample;
+    next_sample = 0;
+    phase += phase_increment;
+
+    if (!high_) {
+      if (phase >= pw) {
+        uint32_t t = (phase - pw) / (phase_increment >> 16);
+        this_sample += ThisBlepSample(t);
+        next_sample += NextBlepSample(t);
+        high_ = true;
+      }
+    }
+    if (high_ && (phase < phase_increment)) {
+      uint32_t t = phase / (phase_increment >> 16);
+      this_sample -= ThisBlepSample(t);
+      next_sample -= NextBlepSample(t);
+      high_ = false;
+    }
+    next_sample += phase < pw ? 0 : 32767;
+    this_sample = (this_sample - 16384) << 1;
+    if (integrate) {
+      integrator_state += integrator_coefficient * (this_sample - integrator_state) >> 15;
+      this_sample = integrator_state << 3;
+    }
+    audio_buffer_.Overwrite(offset_ - (scale_ * this_sample >> 16));
+  }
+  integrator_state_ = integrator_state;
+  next_sample_ = next_sample;
+  phase_ = phase;
+}
+
 void Oscillator::Render(uint8_t mode, int16_t note, bool gate) {
   if (mode == 0 || audio_buffer_.writable() < kAudioBlockSize) {
     return;
@@ -386,24 +428,29 @@ void Oscillator::Render(uint8_t mode, int16_t note, bool gate) {
   }
   
   uint32_t phase_increment = ComputePhaseIncrement(note);
-  switch ((mode & 0x0f) - 1) {
-    case 0:
+  switch (mode & 0x0f) {
+    case AUDIO_MODE_SAW:
       RenderSaw(phase_increment);
       break;
-    case 1:
+    case AUDIO_MODE_PULSE_25:
       RenderSquare(phase_increment, 0x40000000, false);
       break;
-    case 2:
+    case AUDIO_MODE_SQUARE:
       RenderSquare(phase_increment, 0x80000000, false);
       break;
-    case 3:
+    case AUDIO_MODE_TRIANGLE:
       RenderSquare(phase_increment, 0x80000000, true);
       break;
-    case 4:
+    case AUDIO_MODE_SINE:
       RenderSine(phase_increment);
       break;
-    default:
+    case AUDIO_MODE_NOISE:
       RenderNoise();
+      break;
+    case AUDIO_MODE_MORPH:
+      RenderSawSquareMorph(phase_increment, 0x40000000, false);
+      break;
+    default:
       break;
   }
 }
