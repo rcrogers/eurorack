@@ -117,6 +117,12 @@ Ui::Mode Ui::modes_[] = {
     UI_MODE_PARAMETER_SELECT,
     NULL, 0, 0 },
 
+  // UI_MODE_DISPLAY_SEQUENCE
+  { &Ui::OnIncrement, &Ui::OnClickDeleteSequence,
+    &Ui::PrintDeleteSequence,
+    UI_MODE_PARAMETER_SELECT,
+    NULL, 0, 0 },
+
   // UI_MODE_RECORDING
   { &Ui::OnIncrementRecording, &Ui::OnClickRecording,
     &Ui::PrintRecordingStatus,
