@@ -113,6 +113,7 @@ enum SustainMode {
   // SUSTAIN_MODE_SOSTENUTO,
   SUSTAIN_MODE_LATCH,
   SUSTAIN_MODE_OFF,
+  SUSTAIN_MODE_LAST,
 };
 
 struct MidiSettings {
