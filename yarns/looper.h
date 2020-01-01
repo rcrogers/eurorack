@@ -117,7 +117,7 @@ class Deck {
   }
 
   Part* part_;
-  Tape& tape();
+  Tape* tape();
 
   Link head_link_;
   SyncedLFO synced_lfo_;
