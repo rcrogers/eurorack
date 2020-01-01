@@ -48,12 +48,12 @@ void Deck::Rewind() {
 
 void Deck::RemoveAll() {
   std::fill(
-    &tape()->notes[0],
-    &tape()->notes[kMaxNotes],
+    &tape().notes[0],
+    &tape().notes[kMaxNotes],
     Note()
   );
   head_link_.on_index = head_link_.off_index = kNullIndex;
-  tape()->oldest_index = tape()->newest_index = 0;
+  tape().oldest_index = tape().newest_index = 0;
 }
 
 void Deck::ResetHead() {
@@ -63,7 +63,7 @@ void Deck::ResetHead() {
     next_index = PeekNextOn();
     if (
       next_index == kNullIndex ||
-      tape()->notes[head_link_.on_index].on_pos >= tape()->notes[next_index].on_pos
+      tape().notes[head_link_.on_index].on_pos >= tape().notes[next_index].on_pos
     ) {
       break;
     }
@@ -74,7 +74,7 @@ void Deck::ResetHead() {
     next_index = PeekNextOff();
     if (
       next_index == kNullIndex ||
-      tape()->notes[head_link_.off_index].off_pos >= tape()->notes[next_index].off_pos
+      tape().notes[head_link_.off_index].off_pos >= tape().notes[next_index].off_pos
     ) {
       break;
     }
@@ -83,16 +83,16 @@ void Deck::ResetHead() {
 }
 
 void Deck::RemoveOldestNote() {
-  RemoveNote(tape()->oldest_index);
+  RemoveNote(tape().oldest_index);
   if (!IsEmpty()) {
-    tape()->oldest_index = stmlib::modulo(tape()->oldest_index + 1, kMaxNotes);
+    tape().oldest_index = stmlib::modulo(tape().oldest_index + 1, kMaxNotes);
   }
 }
 
 void Deck::RemoveNewestNote() {
-  RemoveNote(tape()->newest_index);
+  RemoveNote(tape().newest_index);
   if (!IsEmpty()) {
-    tape()->newest_index = stmlib::modulo(tape()->newest_index - 1, kMaxNotes);
+    tape().newest_index = stmlib::modulo(tape().newest_index - 1, kMaxNotes);
   }
 }
 
@@ -100,14 +100,14 @@ uint8_t Deck::PeekNextOn() {
   if (head_link_.on_index == kNullIndex) {
     return kNullIndex;
   }
-  return tape()->notes[head_link_.on_index].next_link.on_index;
+  return tape().notes[head_link_.on_index].next_link.on_index;
 }
 
 uint8_t Deck::PeekNextOff() {
   if (head_link_.off_index == kNullIndex) {
     return kNullIndex;
   }
-  return tape()->notes[head_link_.off_index].next_link.off_index;
+  return tape().notes[head_link_.off_index].next_link.off_index;
 }
 
 void Deck::Advance() {
@@ -130,7 +130,7 @@ void Deck::Advance() {
     if (seen_index == kNullIndex) {
       seen_index = next_index;
     }
-    const Note& next_note = tape()->notes[next_index];
+    Note& next_note = tape().notes[next_index];
     if (!Passed(next_note.off_pos, pos_, new_pos)) {
       break;
     }
@@ -150,7 +150,7 @@ void Deck::Advance() {
     if (seen_index == kNullIndex) {
       seen_index = next_index;
     }
-    const Note& next_note = tape()->notes[next_index];
+    Note& next_note = tape().notes[next_index];
     if (!Passed(next_note.on_pos, pos_, new_pos)) {
       break;
     }
@@ -180,18 +180,18 @@ void Deck::Advance() {
 
 void Deck::RecordNoteOn(uint8_t pressed_key_index, uint8_t pitch, uint8_t velocity) {
   if (!IsEmpty()) {
-    tape()->newest_index = stmlib::modulo(1 + tape()->newest_index, kMaxNotes);
+    tape().newest_index = stmlib::modulo(1 + tape().newest_index, kMaxNotes);
   }
-  if (tape()->newest_index == tape()->oldest_index) {
+  if (tape().newest_index == tape().oldest_index) {
     RemoveOldestNote();
   }
 
-  note_index_for_pressed_key_index_[pressed_key_index] = tape()->newest_index;
+  note_index_for_pressed_key_index_[pressed_key_index] = tape().newest_index;
 
   part_->InternalNoteOn(pitch, velocity);
-  InsertOn(pos_, tape()->newest_index);
+  InsertOn(pos_, tape().newest_index);
 
-  Note& note = tape()->notes[tape()->newest_index];
+  Note& note = tape().notes[tape().newest_index];
   note.pitch = pitch;
   note.velocity = velocity;
   note.off_pos = 0;
@@ -208,11 +208,11 @@ void Deck::RecordNoteOff(uint8_t pressed_key_index) {
 
   note_index_for_pressed_key_index_[pressed_key_index] = looper::kNullIndex;
 
-  part_->InternalNoteOff(tape()->notes[index].pitch);
+  part_->InternalNoteOff(tape().notes[index].pitch);
   InsertOff(pos_, index);
 }
 
-inline Tape* Deck::tape() { return &(part_->mutable_sequencer_settings()->looper_tape); }
+inline Tape& Deck::tape() { return part_->mutable_sequencer_settings()->looper_tape; }
 
 bool Deck::Passed(uint16_t target, uint16_t before, uint16_t after) {
   if (before < after) {
@@ -223,13 +223,13 @@ bool Deck::Passed(uint16_t target, uint16_t before, uint16_t after) {
 }
 
 void Deck::InsertOn(uint16_t pos, uint8_t index) {
-  Note& note = tape()->notes[index];
+  Note& note = tape().notes[index];
   note.on_pos = pos;
   if (head_link_.on_index == kNullIndex) {
     // there is no prev note to link to this one, so link it to itself
     note.next_link.on_index = index;
   } else {
-    Note& head_note = tape()->notes[head_link_.on_index];
+    Note& head_note = tape().notes[head_link_.on_index];
     note.next_link.on_index = head_note.next_link.on_index;
     head_note.next_link.on_index = index;
   }
@@ -237,13 +237,13 @@ void Deck::InsertOn(uint16_t pos, uint8_t index) {
 }
 
 void Deck::InsertOff(uint16_t pos, uint8_t index) {
-  Note& note = tape()->notes[index];
+  Note& note = tape().notes[index];
   note.off_pos = pos;
   if (head_link_.off_index == kNullIndex) {
     // there is no prev note to link to this one, so link it to itself
     note.next_link.off_index = index;
   } else {
-    Note& head_note = tape()->notes[head_link_.off_index];
+    Note& head_note = tape().notes[head_link_.off_index];
     note.next_link.off_index = head_note.next_link.off_index;
     head_note.next_link.off_index = index;
   }
@@ -255,7 +255,7 @@ void Deck::RemoveNote(uint8_t target_index) {
     return;
   }
 
-  Note& target_note = tape()->notes[target_index];
+  Note& target_note = tape().notes[target_index];
   bool target_has_off = (target_note.next_link.off_index != kNullIndex);
   uint8_t search_prev_index;
   uint8_t search_next_index;
@@ -273,13 +273,13 @@ void Deck::RemoveNote(uint8_t target_index) {
 
   search_prev_index = target_index;
   while (true) {
-    search_next_index = tape()->notes[search_prev_index].next_link.on_index;
+    search_next_index = tape().notes[search_prev_index].next_link.on_index;
     if (search_next_index == target_index) {
       break;
     }
     search_prev_index = search_next_index;
   }
-  tape()->notes[search_prev_index].next_link.on_index = target_note.next_link.on_index;
+  tape().notes[search_prev_index].next_link.on_index = target_note.next_link.on_index;
   target_note.next_link.on_index = kNullIndex; // unneeded?
   if (target_index == search_prev_index) {
     // If this was the last note
@@ -295,13 +295,13 @@ void Deck::RemoveNote(uint8_t target_index) {
 
   search_prev_index = target_index;
   while (true) {
-    search_next_index = tape()->notes[search_prev_index].next_link.off_index;
+    search_next_index = tape().notes[search_prev_index].next_link.off_index;
     if (search_next_index == target_index) {
       break;
     }
     search_prev_index = search_next_index;
   }
-  tape()->notes[search_prev_index].next_link.off_index = target_note.next_link.off_index;
+  tape().notes[search_prev_index].next_link.off_index = target_note.next_link.off_index;
   target_note.next_link.off_index = kNullIndex;
   if (target_index == search_prev_index) {
     // If this was the last note

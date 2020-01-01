@@ -105,7 +105,6 @@ class Deck {
 
  private:
 
-  Tape* tape();
   void ResetHead();
   bool Passed(uint16_t target, uint16_t before, uint16_t after);
   uint8_t PeekNextOn();
@@ -117,8 +116,8 @@ class Deck {
     return (head_link_.on_index == kNullIndex);
   }
 
-  // TODO initialize
   Part* part_;
+  Tape& tape();
 
   Link head_link_;
   SyncedLFO synced_lfo_;
