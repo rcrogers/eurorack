@@ -255,7 +255,7 @@ struct SequencerSettings {
   uint8_t num_steps;
   SequencerStep step[kNumSteps];
   looper::Tape looper_tape;
-  // no padding needed
+  uint8_t padding[2];
   
   int16_t first_note() {
     for (uint8_t i = 0; i < num_steps; ++i) {
@@ -301,19 +301,6 @@ class Part {
   }
   void StartRecording();
   void DeleteSequence();
-
-  inline void Refresh() {
-    looper_synced_lfo_.Refresh();
-    looper_needs_advance_ = true;
-  }
-  void LooperRewind();
-  void LooperAdvance();
-  inline void LooperRemoveOldestNote() {
-    seq_.looper_tape.RemoveOldestNote(this, looper_pos_);
-  }
-  inline void LooperRemoveNewestNote() {
-    seq_.looper_tape.RemoveNewestNote(this, looper_pos_);
-  }
   
   inline void RecordStep(const SequencerStep& step) {
     if (seq_recording_) {
@@ -400,6 +387,7 @@ class Part {
   inline MidiSettings* mutable_midi_settings() { return &midi_; }
   inline VoicingSettings* mutable_voicing_settings() { return &voicing_; }
   inline SequencerSettings* mutable_sequencer_settings() { return &seq_; }
+  inline looper::Deck* looper_deck() { return &looper_deck_; }
 
   inline bool has_notes() const { return pressed_keys_.size() != 0; }
   
@@ -489,10 +477,7 @@ class Part {
   uint8_t seq_step_;
   uint8_t seq_rec_step_;
   
-  SyncedLFO looper_synced_lfo_;
-  uint16_t looper_pos_;
-  bool looper_needs_advance_;
-  uint8_t looper_note_index_for_pressed_key_index_[kNoteStackSize];
+  looper::Deck looper_deck_;
 
   uint16_t gate_length_counter_;
   uint16_t lfo_counter_;

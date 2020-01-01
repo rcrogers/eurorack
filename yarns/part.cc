@@ -63,8 +63,10 @@ void Part::Init() {
   seq_recording_ = false;
   release_latched_keys_on_next_note_on_ = false;
   transposable_ = true;
-  seq_.looper_tape.RemoveAll();
-  LooperRewind();
+
+  looper_deck_.Init(this);
+  looper_deck_.RemoveAll();
+  looper_deck_.Rewind();
 }
   
 void Part::AllocateVoices(Voice* voice, uint8_t num_voices, bool polychain) {
@@ -107,11 +109,7 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
         || sent_from_step_editor) {
       InternalNoteOn(note, velocity);
     } else if (seq_recording_ && seq_.play_mode == PLAY_MODE_LOOPER) {
-      uint8_t looper_note_index = seq_.looper_tape.RecordNoteOn(
-        this, looper_pos_, note, velocity
-      );
-      looper_note_index_for_pressed_key_index_[pressed_key_index] = looper_note_index;
-      InternalNoteOn(note, velocity);
+      looper_deck_.RecordNoteOn(pressed_key_index, note, velocity);
     }
   }
   return midi_.out_mode == MIDI_OUT_MODE_THRU && !polychained_;
@@ -148,14 +146,7 @@ bool Part::NoteOff(uint8_t channel, uint8_t note) {
           sent_from_step_editor) {
         InternalNoteOff(note);
       } else if (seq_recording_ && seq_.play_mode == PLAY_MODE_LOOPER) {
-        uint8_t looper_note_index = looper_note_index_for_pressed_key_index_[pressed_key_index];
-        looper_note_index_for_pressed_key_index_[pressed_key_index] = looper::kNullIndex;
-        if (
-          looper_note_index != looper::kNullIndex &&
-          seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index)
-        ) {
-          InternalNoteOff(note);
-        }
+        looper_deck_.RecordNoteOff(pressed_key_index);
       }
     }
   }
@@ -343,7 +334,7 @@ void Part::Clock() {
   uint8_t bar_duration = multi.settings().clock_bar_duration;
   num_ticks = num_ticks * (bar_duration ? bar_duration : 1);
   expected_phase = (lfo_counter_ % num_ticks) * 65536 / num_ticks;
-  looper_synced_lfo_.Tap(expected_phase << 16);
+  looper_deck_.Tap(expected_phase << 16);
 
   ++lfo_counter_;
 }
@@ -363,33 +354,9 @@ void Part::Start() {
   
   lfo_counter_ = 0;
   
-  LooperRewind();
+  looper_deck_.Rewind();
 
   generated_notes_.Clear();
-}
-
-void Part::LooperRewind() {
-  looper_synced_lfo_.Init();
-  looper_pos_ = 0;
-  looper_needs_advance_ = false;
-  seq_.looper_tape.ResetHead();
-  std::fill(
-    &looper_note_index_for_pressed_key_index_[0],
-    &looper_note_index_for_pressed_key_index_[kNoteStackSize],
-    looper::kNullIndex
-  );
-}
-
-void Part::LooperAdvance() {
-  if (!looper_needs_advance_) {
-    return;
-  }
-  uint16_t new_pos = looper_synced_lfo_.GetPhase() >> 16;
-  seq_.looper_tape.Advance(
-    this, seq_.play_mode == PLAY_MODE_LOOPER, looper_pos_, new_pos
-  );
-  looper_pos_ = new_pos;
-  looper_needs_advance_ = false;
 }
 
 void Part::Stop() {

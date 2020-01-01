@@ -291,7 +291,7 @@ void Multi::Refresh() {
   }
 
   for (uint8_t j = 0; j < num_active_parts_; ++j) {
-    part_[j].Refresh();
+    part_[j].looper_deck()->Refresh();
   }
 
   for (uint8_t i = 0; i < kNumVoices; ++i) {

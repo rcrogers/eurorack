@@ -32,6 +32,8 @@
 #include "stmlib/stmlib.h"
 #include <algorithm>
 
+#include "yarns/synced_lfo.h"
+
 namespace yarns {
 
 class Part;
@@ -40,6 +42,7 @@ namespace looper {
 
 const uint8_t kMaxNotes = 16;
 const uint8_t kNullIndex = UINT8_MAX;
+const uint8_t kNoteStackSize = 12; //TODO
 
 struct Link {
   Link() {
@@ -58,44 +61,72 @@ struct Note {
   uint8_t velocity;
 };
 
-class Tape {
+struct Tape {
+  // persistent storage
+  // 130 bytes
+  // could recoup 33 bytes by packing 4-bit index and 12-bit pos
+  // TODO also links don't need to be in storage, they can be reconstructed
+  // TODO also links might not be needed at all?
+  Note notes[kMaxNotes];
+  uint8_t oldest_index;
+  uint8_t newest_index;
+};
+
+class Deck {
  public:
 
-  Tape() { }
-  ~Tape() { }
+  Deck() { }
+  ~Deck() { }
 
-  void RemoveAll();
-  bool IsEmpty() {
-    return (head_link_.on_index == kNullIndex);
+  inline void Init(Part* part) { part_ = part; }
+  
+  inline void Refresh() {
+    synced_lfo_.Refresh();
+    needs_advance_ = true;
   }
-  void ResetHead();
+  
+  inline void Tap(uint32_t target_phase) {
+    synced_lfo_.Tap(target_phase);
+  }
+
+  void Rewind();
+  void RemoveAll();
 
   //TODO glitches caused by:
   // remove -- occasionally causes eternal hang -- try lowering kMaxNotes to see if wrapping issue?
   // dramatically slowing tap tempo
   // adjusting clock div either way
 
-  void RemoveOldestNote(Part* part, uint16_t current_pos);
-  void RemoveNewestNote(Part* part, uint16_t current_pos);
-  void Advance(Part* part, bool play, uint16_t old_pos, uint16_t new_pos);
-  uint8_t RecordNoteOn(Part* part, uint16_t pos, uint8_t pitch, uint8_t velocity);
-  bool RecordNoteOff(uint16_t pos, uint8_t index);
+  void RemoveOldestNote();
+  void RemoveNewestNote();
+  void Advance();
+  void RecordNoteOn(uint8_t pressed_key_index, uint8_t pitch, uint8_t velocity);
+  void RecordNoteOff(uint8_t pressed_key_index);
 
  private:
 
+  Tape* tape();
+  void ResetHead();
   bool Passed(uint16_t target, uint16_t before, uint16_t after);
   uint8_t PeekNextOn();
   uint8_t PeekNextOff();
   void InsertOn(uint16_t pos, uint8_t index);
   void InsertOff(uint16_t pos, uint8_t index);
-  void RemoveNote(Part* part, uint16_t current_pos, uint8_t index);
+  void RemoveNote(uint8_t index);
+  bool IsEmpty() {
+    return (head_link_.on_index == kNullIndex);
+  }
 
-  Note notes_[kMaxNotes];
+  // TODO initialize
+  Part* part_;
+
   Link head_link_;
-  uint8_t oldest_index_;
-  uint8_t newest_index_;
+  SyncedLFO synced_lfo_;
+  uint16_t pos_;
+  bool needs_advance_;
+  uint8_t note_index_for_pressed_key_index_[kNoteStackSize];
 
-  DISALLOW_COPY_AND_ASSIGN(Tape);
+  DISALLOW_COPY_AND_ASSIGN(Deck);
 };
 
 } // namespace looper

@@ -302,7 +302,7 @@ class Multi {
       return;
     }
     for (uint8_t j = 0; j < num_active_parts_; ++j) {
-      part_[j].LooperAdvance();
+      part_[j].looper_deck()->Advance();
     }
   }
 
