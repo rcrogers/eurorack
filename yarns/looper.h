@@ -78,7 +78,7 @@ class Deck {
   Deck() { }
   ~Deck() { }
 
-  inline void Init(Part* part) { part_ = part; }
+  void Init(Part* part);
   
   inline void Refresh() {
     synced_lfo_.Refresh();
@@ -105,6 +105,8 @@ class Deck {
 
  private:
 
+  const Note& note(uint8_t index) const { return tape_->notes[index]; }
+  Note* mutable_note(uint8_t index) { return &tape_->notes[index]; }
   void ResetHead();
   bool Passed(uint16_t target, uint16_t before, uint16_t after);
   uint8_t PeekNextOn();
@@ -117,7 +119,7 @@ class Deck {
   }
 
   Part* part_;
-  Tape* tape();
+  Tape* tape_;
 
   Link head_link_;
   SyncedLFO synced_lfo_;
