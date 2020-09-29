@@ -429,39 +429,44 @@ void Part::StopSequencerArpeggiatorNotes() {
   }
 }
 
+uint8_t Part::PitchWithSequencerInputResponse(int16_t note, int8_t root_note) {
+  if (pressed_keys_.size() && transposable_) {
+    switch (seq_.input_response) {
+      case SEQUENCER_INPUT_RESPONSE_TRANSPOSE:
+        {
+          note += pressed_keys_.most_recent_note().note - root_note;
+        }
+        while (note > 127) {
+          note -= 12;
+        }
+        while (note < 0) {
+          note += 12;
+        }
+        break;
+
+      case SEQUENCER_INPUT_RESPONSE_OVERRIDE:
+        note = pressed_keys_.most_recent_note().note;
+        break;
+
+      case SEQUENCER_INPUT_RESPONSE_DIRECT:
+      case SEQUENCER_INPUT_RESPONSE_OFF:
+        break;
+    }
+  }
+  return note;
+}
+
 void Part::ClockSequencer() {
   const SequencerStep& step = seq_.step[seq_step_];
 
   if (step.has_note()) {
-    int16_t note = step.note();
-    if (pressed_keys_.size() && transposable_) {
-      switch (seq_.input_response) {
-        case SEQUENCER_INPUT_RESPONSE_TRANSPOSE:
-          {
-          // When we play a monophonic sequence, we can make the guess that root
-          // note = first note.
-          // But this is not the case when we are playing several sequences at the
-          // same time. In this case, we use root note = 60.
-          int8_t root_note = !has_siblings_ ? seq_.first_note() : 60;
-          note += pressed_keys_.most_recent_note().note - root_note;
-          }
-          while (note > 127) {
-            note -= 12;
-          }
-          while (note < 0) {
-            note += 12;
-          }
-          break;
+    // When we play a monophonic sequence, we can make the guess that root
+    // note = first note.
+    // But this is not the case when we are playing several sequences at the
+    // same time. In this case, we use root note = 60.
+    int8_t root_note = !has_siblings_ ? seq_.first_note() : 60;
+    uint8_t note = PitchWithSequencerInputResponse(step.note(), root_note);
 
-        case SEQUENCER_INPUT_RESPONSE_OVERRIDE:
-          note = pressed_keys_.most_recent_note().note;
-          break;
-
-        case SEQUENCER_INPUT_RESPONSE_DIRECT:
-        case SEQUENCER_INPUT_RESPONSE_OFF:
-          break;
-      }
-    }
     if (!step.is_slid()) {
       StopSequencerArpeggiatorNotes();
       InternalNoteOn(note, step.velocity());

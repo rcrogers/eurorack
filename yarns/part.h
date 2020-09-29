@@ -348,10 +348,13 @@ class Part {
     return looper_note_index_for_generated_note_index_[generated_notes_.most_recent_note_index()];
   }
   inline void LooperNoteOn(uint8_t looper_note_index, uint8_t pitch, uint8_t velocity) {
+    pitch = PitchWithSequencerInputResponse(pitch, 60);
     looper_note_index_for_generated_note_index_[generated_notes_.NoteOn(pitch, velocity)] = looper_note_index;
     InternalNoteOn(pitch, velocity);
   }
   inline void LooperNoteOff(uint8_t looper_note_index, uint8_t pitch) {
+    // TODO this doesn't work reliably because the pressed_keys_ may have changed during the note duration
+    pitch = PitchWithSequencerInputResponse(pitch, 60);
     looper_note_index_for_generated_note_index_[generated_notes_.NoteOff(pitch)] = looper::kNullIndex;
     InternalNoteOff(pitch);
   }
@@ -508,6 +511,7 @@ class Part {
   void DispatchSortedNotes(bool unison);
   void KillAllInstancesOfNote(uint8_t note);
   
+  uint8_t PitchWithSequencerInputResponse(int16_t note, int8_t root_note);
   void ClockSequencer();
   void ClockArpeggiator();
   void ArpeggiatorNoteOn();
