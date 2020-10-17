@@ -6,7 +6,7 @@
 	url = https://github.com/pichenettes/avrilx.git
 [submodule "stmlib"]
 	path = stmlib
-	url = https://github.com/pichenettes/stmlib.git
+	url = https://github.com/rcrogers/mutable-instruments-stmlib.git
 [submodule "stm_audio_bootloader"]
 	path = stm_audio_bootloader
 	url = https://github.com/pichenettes/stm-audio-bootloader.git
