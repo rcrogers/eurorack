@@ -561,7 +561,7 @@ void Ui::OnIncrementParameterEdit(const stmlib::Event& e) {
 }
 
 void Ui::OnIncrementCalibrationAdjustment(const stmlib::Event& e) {
-  Voice* voice = multi.mutable_voice(calibration_voice_);
+  CVOutput* voice = multi.mutable_cv_output(calibration_voice_);
   int32_t code = voice->calibration_dac_code(calibration_note_);
   code -= e.data * (switches_.pressed(2) ? 32 : 1);
   CONSTRAIN(code, 0, 65535);

@@ -213,7 +213,7 @@ void MidiHandler::HandleYarnsSpecificMessage() {
     if (calibrating()) {
       uint16_t dac_code = (sysex_rx_buffer_[8] << 12) | (sysex_rx_buffer_[9] << 8) |
         (sysex_rx_buffer_[10] << 4) | (sysex_rx_buffer_[11] << 0);
-      Voice* voice = multi.mutable_voice(calibration_voice_);
+      CVOutput* voice = multi.mutable_cv_output(calibration_voice_);
       voice->set_calibration_dac_code(calibration_note_, dac_code);
     } else {
       storage_manager.SaveCalibration();

@@ -46,16 +46,7 @@ using namespace stmlib_midi;
 const int32_t kOctave = 12 << 7;
 const int32_t kMaxNote = 120 << 7;
 
-void CVOutput::Init(bool reset_calibration) {
-  if (reset_calibration) {
-    for (uint8_t i = 0; i < kNumOctaves; ++i) {
-      calibrated_dac_code_[i] = 54586 - 5133 * i;
-    }
-  }
-  dirty_ = false;
-}
-
-void Voice::Init(CVOutput& cvo) {
+void Voice::Init() {
   note_ = -1;
   note_source_ = note_target_ = note_portamento_ = 60 << 7;
   gate_ = false;
@@ -73,12 +64,15 @@ void Voice::Init(CVOutput& cvo) {
   portamento_exponential_shape_ = false;
   
   trigger_duration_ = 2;
-  
-  cv_output_ = cvo;
-  oscillator_.Init(
-    cv_output_.calibration_dac_code(3) - cv_output_.calibration_dac_code(8),
-    cv_output_.calibration_dac_code(3)
-  );
+}
+
+void CVOutput::Init(bool reset_calibration) {
+  if (reset_calibration) {
+    for (uint8_t i = 0; i < kNumOctaves; ++i) {
+      calibrated_dac_code_[i] = 54586 - 5133 * i;
+    }
+  }
+  dirty_ = false;
 }
 
 void CVOutput::Calibrate(uint16_t* calibrated_dac_code) {
@@ -111,10 +105,10 @@ inline uint16_t CVOutput::NoteToDacCode(int32_t note) const {
 void Voice::ResetAllControllers() {
   mod_pitch_bend_ = 8192;
   mod_wheel_ = 0;
-  std::fill(&mod_aux_[0], &mod_aux_[7], 0);
+  std::fill(&mod_aux_[0], &mod_aux_[MOD_AUX_LAST - 1], 0);
 }
 
-void Voice::Refresh() {
+bool Voice::Refresh() {
   // Compute base pitch with portamento.
   portamento_phase_ += portamento_phase_increment_;
   if (portamento_phase_ < portamento_phase_increment_) {
@@ -149,17 +143,17 @@ void Voice::Refresh() {
       vibrato_control_value = mod_wheel_;
       break;
     case VIBRATO_CONTROL_SOURCE_AFTERTOUCH:
-      vibrato_control_value = mod_aux_[2];
+      vibrato_control_value = mod_aux_[MOD_AUX_AFTERTOUCH];
       break;
   }
   vibrato_control_value += vibrato_initial_;
   CONSTRAIN(vibrato_control_value, 0, 127);
   note += lfo * vibrato_control_value * vibrato_range_ >> 15;
-  mod_aux_[0] = mod_velocity_ << 9;
-  mod_aux_[1] = mod_wheel_ << 9;
-  mod_aux_[5] = static_cast<uint16_t>(mod_pitch_bend_) << 2;
-  mod_aux_[6] = (lfo * vibrato_control_value >> 7) + 32768;
-  mod_aux_[7] = lfo + 32768;
+  mod_aux_[MOD_AUX_VELOCITY] = mod_velocity_ << 9;
+  mod_aux_[MOD_AUX_MODULATION] = mod_wheel_ << 9;
+  mod_aux_[MOD_AUX_BEND] = static_cast<uint16_t>(mod_pitch_bend_) << 2;
+  mod_aux_[MOD_AUX_VIBRATO_LFO] = (lfo * vibrato_control_value >> 7) + 32768;
+  mod_aux_[MOD_AUX_FULL_LFO] = lfo + 32768;
   
   // Use quadrature phase for PWM LFO
   lfo = synced_lfo_.Triangle(synced_lfo_.GetPhase() + 0x40000000);
@@ -184,11 +178,9 @@ void Voice::Refresh() {
       trigger_phase_increment_ = 0;
     }
   }
-  if (note != note_ || dirty_) {
-    note_dac_code_ = cv_output_.NoteToDacCode(note);
-    note_ = note;
-    dirty_ = false;
-  }
+  bool changed = note != note_;
+  note_ = note;
+  return changed;
 }
 
 void Voice::NoteOn(
@@ -238,18 +230,18 @@ void Voice::ControlChange(uint8_t controller, uint8_t value) {
       break;
     
     case kCCBreathController:
-      mod_aux_[3] = value << 9;
+      mod_aux_[MOD_AUX_BREATH] = value << 9;
       break;
       
     case kCCFootPedalMsb:
-      mod_aux_[4] = value << 9;
+      mod_aux_[MOD_AUX_PEDAL] = value << 9;
       break;
   }
 }
 
-uint16_t Voice::trigger_dac_code() const {
+int32_t Voice::trigger_value() const {
   if (trigger_phase_ <= trigger_phase_increment_) {
-    return cv_output_.volts_dac_code(0);
+    return 0;
   } else {
     int32_t velocity_coefficient = trigger_scale_ ? mod_velocity_ << 8 : 32768;
     int32_t value = 0;
@@ -269,9 +261,7 @@ uint16_t Voice::trigger_dac_code() const {
         break;
     }
     value = value * velocity_coefficient >> 15;
-    int32_t max = cv_output_.volts_dac_code(5);
-    int32_t min = cv_output_.volts_dac_code(0);
-    return min + ((max - min) * value >> 15);
+    return value;
   }
 }
 

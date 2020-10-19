@@ -107,16 +107,17 @@ void SysTick_Handler() {
   gate_output.Write(gate);
   multi.Refresh();
   multi.GetCvGate(cv, gate);
-  has_audio_sources = multi.GetAudioSource(audio_source);
+  multi.GetAudioSource(audio_source);
+  has_audio_sources = audio_source[0] || audio_source[1] || audio_source[2] || audio_source[3];
   
   // In calibration mode, overrides the DAC outputs with the raw calibration
   // table values.
   if (ui.calibrating()) {
-    const Voice& voice = multi.voice(ui.calibration_voice());
+    const CVOutput& voice = multi.cv_output(ui.calibration_voice());
     cv[ui.calibration_voice()] = voice.calibration_dac_code(
         ui.calibration_note());
   } else if (midi_handler.calibrating()) {
-    const Voice& voice = multi.voice(midi_handler.calibration_voice());
+    const CVOutput& voice = multi.cv_output(midi_handler.calibration_voice());
     cv[midi_handler.calibration_voice()] = voice.calibration_dac_code(
         midi_handler.calibration_note());
   }
@@ -141,9 +142,8 @@ void TIM1_UP_IRQHandler(void) {
   TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
 
   dac.Cycle();
-  uint8_t source_voice = audio_source[dac.channel()];
-  if (source_voice != 0xff) {
-    uint16_t audio_sample = multi.mutable_voice(source_voice)->ReadSample();
+  if (audio_source[dac.channel()] != 0xff) {
+    uint16_t audio_sample = multi.mutable_cv_output(dac.channel())->ReadSample();
     dac.Write(audio_sample);
   } else {
     // Use value written there during previous CV refresh.

@@ -317,7 +317,7 @@ class Multi {
 
   inline void RenderAudio() {
     for (uint8_t i = 0; i < kNumVoices; ++i) {
-      voice_[i].RenderAudio();
+      cv_outputs_[i].RenderAudio();
     }
   }
   
@@ -347,11 +347,13 @@ class Multi {
     return reset() || ((settings_.clock_bar_duration == 0) && running_);
   }
   
+  inline const CVOutput& cv_output(uint8_t index) const { return cv_outputs_[index]; }
   inline const Part& part(uint8_t index) const { return part_[index]; }
   inline const Voice& voice(uint8_t index) const { return voice_[index]; }
   inline const MultiSettings& settings() const { return settings_; }
   inline uint8_t num_active_parts() const { return num_active_parts_; }
   
+  inline CVOutput* mutable_cv_output(uint8_t index) { return &cv_outputs_[index]; }
   inline Voice* mutable_voice(uint8_t index) { return &voice_[index]; }
   inline Part* mutable_part(uint8_t index) { return &part_[index]; }
   inline MultiSettings* mutable_settings() { return &settings_; }
@@ -374,8 +376,9 @@ class Multi {
     return true;
   }
   
+  void AssignVoicesToCVOutputs();
   void GetCvGate(uint16_t* cv, bool* gate);
-  bool GetAudioSource(uint8_t* audio_source);
+  void GetAudioSource(uint8_t* audio_source);
   void GetLedsBrightness(uint8_t* brightness);
 
   template<typename T>
@@ -413,7 +416,7 @@ class Multi {
     // 4 voices x 11 octaves x 2 bytes = 88 bytes
     for (uint8_t i = 0; i < kNumVoices; ++i) {
       for (uint8_t j = 0; j < kNumOctaves; ++j) {
-        stream_buffer->Write(voice_[i].calibration_dac_code(j)); // 2 bytes
+        stream_buffer->Write(cv_outputs_[i].calibration_dac_code(j)); // 2 bytes
       }
     }
   };
@@ -424,7 +427,7 @@ class Multi {
       for (uint8_t j = 0; j < kNumOctaves; ++j) {
         uint16_t v;
         stream_buffer->Read(&v);
-        voice_[i].set_calibration_dac_code(j, v);
+        cv_outputs_[i].set_calibration_dac_code(j, v);
       }
     }
   };
@@ -482,7 +485,7 @@ class Multi {
   
   Part part_[kNumParts];
   Voice voice_[kNumVoices];
-  CVOutput cv_output_[kNumVoices];
+  CVOutput cv_outputs_[kNumVoices];
 
   LayoutConfigurator layout_configurator_;
   
