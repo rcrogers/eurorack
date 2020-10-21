@@ -298,7 +298,7 @@ void Multi::Refresh() {
   }
 
   for (uint8_t i = 0; i < kNumVoices; ++i) {
-    voice_[i].Refresh();
+    cv_outputs_[i].Refresh();
   }
 }
 
@@ -417,7 +417,7 @@ void Multi::GetCvGate(uint16_t* cv, bool* gate) {
     case LAYOUT_THREE_ONE:
     case LAYOUT_TWO_TWO:
       cv[0] = cv_outputs_[0].note_dac_code();
-      cv[1] = cv_outputs_[1].velocity_dac_code(); // voice_[1].note_dac_code();
+      cv[1] = cv_outputs_[1].note_dac_code();
       cv[2] = cv_outputs_[2].note_dac_code();
       cv[3] = cv_outputs_[3].note_dac_code();
       gate[0] = voice_[0].gate();
@@ -470,16 +470,14 @@ void Multi::GetCvGate(uint16_t* cv, bool* gate) {
   }
 }
 
-void Multi::GetAudioSource(uint8_t* audio_source) {
-  // TODO audio_source maps a DAC channel to a voice -- should instead map to a CVOutput?
-  // the CVOutput is its own audio source, so this may be totally unnecessary
+void Multi::GetAudioSource(bool* audio_source) {
   switch (settings_.layout) {
     case LAYOUT_MONO:
     case LAYOUT_DUAL_POLYCHAINED:
       audio_source[0] = false;
       audio_source[1] = false;
       audio_source[2] = false;
-      audio_source[3] = cv_outputs_[3].audio_mode();
+      audio_source[3] = cv_outputs_[3].has_audio();
       break;
       
     case LAYOUT_DUAL_MONO:
@@ -487,8 +485,8 @@ void Multi::GetAudioSource(uint8_t* audio_source) {
     case LAYOUT_QUAD_POLYCHAINED:
       audio_source[0] = false;
       audio_source[1] = false;
-      audio_source[2] = cv_outputs_[2].audio_mode();
-      audio_source[3] = cv_outputs_[3].audio_mode();
+      audio_source[2] = cv_outputs_[2].has_audio();
+      audio_source[3] = cv_outputs_[3].has_audio();
       break;
       
     case LAYOUT_QUAD_MONO:
@@ -496,17 +494,17 @@ void Multi::GetAudioSource(uint8_t* audio_source) {
     case LAYOUT_OCTAL_POLYCHAINED:
     case LAYOUT_THREE_ONE:
     case LAYOUT_TWO_TWO:
-      audio_source[0] = cv_outputs_[0].audio_mode();
-      audio_source[1] = cv_outputs_[1].audio_mode();
-      audio_source[2] = cv_outputs_[2].audio_mode();
-      audio_source[3] = cv_outputs_[3].audio_mode();
+      audio_source[0] = cv_outputs_[0].has_audio();
+      audio_source[1] = cv_outputs_[1].has_audio();
+      audio_source[2] = cv_outputs_[2].has_audio();
+      audio_source[3] = cv_outputs_[3].has_audio();
       break;
     
     case LAYOUT_TWO_ONE:
-      audio_source[0] = cv_outputs_[0].audio_mode();
-      audio_source[1] = cv_outputs_[1].audio_mode();
+      audio_source[0] = cv_outputs_[0].has_audio();
+      audio_source[1] = cv_outputs_[1].has_audio();
       audio_source[2] = false;
-      audio_source[3] = cv_outputs_[3].audio_mode();
+      audio_source[3] = cv_outputs_[3].has_audio();
       break;
 
     case LAYOUT_QUAD_TRIGGERS:
@@ -910,6 +908,7 @@ void Multi::ChangeLayout(Layout old_layout, Layout new_layout) {
   for (uint8_t i = 0; i < num_active_parts_; ++i) {
     part_[i].set_siblings(num_active_parts_ > 1);
   }
+  AssignVoicesToCVOutputs();
 }
 
 void Multi::Touch() {

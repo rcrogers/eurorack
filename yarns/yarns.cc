@@ -66,7 +66,7 @@ extern "C" {
 uint16_t cv[4];
 bool gate[4];
 bool has_audio_sources;
-uint8_t audio_source[4];
+bool audio_source[4];
 uint16_t factory_testing_counter;
 
 void SysTick_Handler() {
@@ -142,7 +142,7 @@ void TIM1_UP_IRQHandler(void) {
   TIM_ClearITPendingBit(TIM1, TIM_IT_Update);
 
   dac.Cycle();
-  if (audio_source[dac.channel()] != 0xff) {
+  if (audio_source[dac.channel()]) {
     uint16_t audio_sample = multi.mutable_cv_output(dac.channel())->ReadSample();
     dac.Write(audio_sample);
   } else {

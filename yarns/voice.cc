@@ -82,7 +82,8 @@ void CVOutput::Calibrate(uint16_t* calibrated_dac_code) {
       &calibrated_dac_code_[0]);
 }
 
-inline uint16_t CVOutput::NoteToDacCode(int32_t note) const {
+inline void CVOutput::NoteToDacCode() {
+  int32_t note = main_voice()->note();
   if (note <= 0) {
     note = 0;
   }
@@ -99,7 +100,7 @@ inline uint16_t CVOutput::NoteToDacCode(int32_t note) const {
   // Octave indicates the octave. Look up in the DAC code table.
   int32_t a = calibrated_dac_code_[octave];
   int32_t b = calibrated_dac_code_[octave + 1];
-  return a + ((b - a) * note / kOctave);
+  note_dac_code_ = a + ((b - a) * note / kOctave);
 }
 
 void Voice::ResetAllControllers() {
@@ -181,6 +182,13 @@ bool Voice::Refresh() {
   bool changed = note != note_;
   note_ = note;
   return changed;
+}
+
+void CVOutput::Refresh() {
+  if (main_voice()->Refresh() || dirty_) {
+    NoteToDacCode();
+    dirty_ = false;
+  }
 }
 
 void Voice::NoteOn(

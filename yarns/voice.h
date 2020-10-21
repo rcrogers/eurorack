@@ -282,7 +282,7 @@ class CVOutput {
   inline void assign_voices(uint8_t num, Voice* list) {
     num_voices_ = num;
     for (uint8_t i = 0; i < num_voices_; ++i) {
-      voices_[i] = &list[i];
+      voices_[i] = list + i;
       voices_[i]->oscillator()->Init(calibration_dac_code(3) - calibration_dac_code(8),
         calibration_dac_code(3));
     }
@@ -292,20 +292,15 @@ class CVOutput {
     return voices_[0];
   }
 
-  inline uint8_t audio_mode() {
-    return main_voice()->audio_mode();
+  inline bool has_audio() const {
+    return !!(main_voice()->audio_mode());
   }
 
   inline uint16_t ReadSample() { // TODO average among voices
     return main_voice()->ReadSample();
   }
 
-  inline void Refresh() {
-    if (main_voice()->Refresh() || dirty_) {
-      note_dac_code_ = NoteToDacCode(main_voice()->note());
-      dirty_ = false;
-    }
-  }
+  void Refresh();
 
   inline uint16_t DacCodeFrom16BitValue(uint16_t value) const {
     uint32_t v = static_cast<uint32_t>(value);
@@ -355,7 +350,7 @@ class CVOutput {
   }
 
  private:
-  uint16_t NoteToDacCode(int32_t note) const;
+  void NoteToDacCode();
 
   Voice* voices_[kMaxNumVoices];
   uint8_t num_voices_;
