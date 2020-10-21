@@ -828,8 +828,8 @@ void Part::TouchVoiceAllocation() {
 }
 
 void Part::TouchVoices() {
-  CONSTRAIN(voicing_.aux_cv, 0, 7);
-  CONSTRAIN(voicing_.aux_cv_2, 0, 7);
+  CONSTRAIN(voicing_.aux_cv, 0, MOD_AUX_LAST - 1);
+  CONSTRAIN(voicing_.aux_cv_2, 0, MOD_AUX_LAST - 1);
   for (uint8_t i = 0; i < num_voices_; ++i) {
     voice_[i]->set_pitch_bend_range(voicing_.pitch_bend_range);
     voice_[i]->set_modulation_rate(voicing_.modulation_rate * pow(1.123, (int) i));

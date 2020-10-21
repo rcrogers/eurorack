@@ -391,19 +391,19 @@ const Setting Settings::settings_[] = {
   {
     "3>", "CV OUT 3",
     SETTING_DOMAIN_PART, { PART_VOICING_AUX_CV, 0 },
-    SETTING_UNIT_ENUMERATION, 0, 7, voicing_aux_cv_values,
+    SETTING_UNIT_ENUMERATION, 0, MOD_AUX_LAST - 1, voicing_aux_cv_values,
     31, 22,
   },
   {
     "4>", "CV OUT 4",
     SETTING_DOMAIN_PART, { PART_VOICING_AUX_CV_2, 0 },
-    SETTING_UNIT_ENUMERATION, 0, 7, voicing_aux_cv_values,
+    SETTING_UNIT_ENUMERATION, 0, MOD_AUX_LAST - 1, voicing_aux_cv_values,
     72, 0,
   },
   {
     "OS", "OSC WAVE",
     SETTING_DOMAIN_PART, { PART_VOICING_AUDIO_MODE, 0 },
-    SETTING_UNIT_ENUMERATION, 0, 6, voicing_oscillator_values,
+    SETTING_UNIT_ENUMERATION, 0, AUDIO_MODE_LAST - 1, voicing_oscillator_values,
     71, 23,
   },
   {

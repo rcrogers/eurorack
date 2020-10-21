@@ -95,12 +95,12 @@ void Multi::Init(bool reset_calibration) {
   voicing->vibrato_control_source = VIBRATO_CONTROL_SOURCE_MODWHEEL;
   voicing->modulation_rate = 50;
   voicing->trigger_duration = 2;
-  voicing->aux_cv = 1;
-  voicing->aux_cv_2 = 6;
+  voicing->aux_cv = MOD_AUX_MODULATION;
+  voicing->aux_cv_2 = MOD_AUX_VIBRATO_LFO;
   voicing->tuning_transpose = 0;
   voicing->tuning_fine = 0;
   voicing->tuning_root = 0;
-  voicing->tuning_system = 0;
+  voicing->tuning_system = TUNING_SYSTEM_EQUAL;
   voicing->tuning_factor = 0;
   voicing->audio_mode = AUDIO_MODE_OFF;
 
