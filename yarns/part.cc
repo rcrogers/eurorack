@@ -55,7 +55,7 @@ void Part::Init() {
   generated_notes_.Init();
   std::fill(
       &active_note_[0],
-      &active_note_[kMaxNumVoices],
+      &active_note_[kNumMaxVoicesPerPart],
       VOICE_ALLOCATION_NOT_FOUND);
   num_voices_ = 0;
   polychained_ = false;
@@ -71,7 +71,7 @@ void Part::Init() {
 void Part::AllocateVoices(Voice* voice, uint8_t num_voices, bool polychain) {
   AllNotesOff();
     
-  num_voices_ = std::min(num_voices, kMaxNumVoices);
+  num_voices_ = std::min(num_voices, kNumMaxVoicesPerPart);
   polychained_ = polychain;
   for (uint8_t i = 0; i < num_voices_; ++i) {
     voice_[i] = voice + i;
@@ -636,7 +636,7 @@ void Part::AllNotesOff() {
   }
   std::fill(
       &active_note_[0],
-      &active_note_[kMaxNumVoices],
+      &active_note_[kNumMaxVoicesPerPart],
       VOICE_ALLOCATION_NOT_FOUND);
   release_latched_keys_on_next_note_on_ = false;
   ignore_note_off_messages_ = false;

@@ -40,7 +40,8 @@
 namespace yarns {
 
 const uint8_t kNumParts = 4;
-const uint8_t kNumVoices = 4;
+const uint8_t kNumSystemVoices = 4;
+const uint8_t kNumCVOutputs = 4;
 const uint8_t kMaxBarDuration = 32;
 
 struct MultiSettings {
@@ -316,7 +317,7 @@ class Multi {
   }
 
   inline void RenderAudio() {
-    for (uint8_t i = 0; i < kNumVoices; ++i) {
+    for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
       cv_outputs_[i].RenderAudio();
     }
   }
@@ -414,7 +415,7 @@ class Multi {
   template<typename T>
   void SerializeCalibration(T* stream_buffer) {
     // 4 voices x 11 octaves x 2 bytes = 88 bytes
-    for (uint8_t i = 0; i < kNumVoices; ++i) {
+    for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
       for (uint8_t j = 0; j < kNumOctaves; ++j) {
         stream_buffer->Write(cv_outputs_[i].calibration_dac_code(j)); // 2 bytes
       }
@@ -423,7 +424,7 @@ class Multi {
   
   template<typename T>
   void DeserializeCalibration(T* stream_buffer) {
-    for (uint8_t i = 0; i < kNumVoices; ++i) {
+    for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
       for (uint8_t j = 0; j < kNumOctaves; ++j) {
         uint16_t v;
         stream_buffer->Read(&v);
@@ -484,8 +485,8 @@ class Multi {
   uint8_t num_active_parts_;
   
   Part part_[kNumParts];
-  Voice voice_[kNumVoices];
-  CVOutput cv_outputs_[kNumVoices];
+  Voice voice_[kNumSystemVoices];
+  CVOutput cv_outputs_[kNumCVOutputs];
 
   LayoutConfigurator layout_configurator_;
   

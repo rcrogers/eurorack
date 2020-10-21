@@ -352,7 +352,7 @@ class CVOutput {
  private:
   void NoteToDacCode();
 
-  Voice* voices_[kMaxNumVoices];
+  Voice* voices_[kNumMaxVoicesPerPart];
   uint8_t num_voices_;
   uint16_t note_dac_code_;
   bool dirty_;  // Set to true when the calibration settings have changed.

@@ -43,7 +43,7 @@ namespace yarns {
 class Voice;
 
 const uint8_t kNumSteps = 16;
-const uint8_t kMaxNumVoices = 4;
+const uint8_t kNumMaxVoicesPerPart = 4;
 const uint8_t kNoteStackSize = 12;
 
 const int8_t whiteKeyValues[] = {
@@ -517,7 +517,7 @@ class Part {
   VoicingSettings voicing_;
   SequencerSettings seq_;
   
-  Voice* voice_[kMaxNumVoices];
+  Voice* voice_[kNumMaxVoicesPerPart];
   int8_t* custom_pitch_table_;
   uint8_t num_voices_;
   bool polychained_;
@@ -528,8 +528,8 @@ class Part {
   stmlib::NoteStack<kNoteStackSize> pressed_keys_;
   stmlib::NoteStack<kNoteStackSize> generated_notes_;  // by sequencer or arpeggiator.
   stmlib::NoteStack<kNoteStackSize> mono_allocator_;
-  stmlib::VoiceAllocator<kMaxNumVoices * 2> poly_allocator_;
-  uint8_t active_note_[kMaxNumVoices];
+  stmlib::VoiceAllocator<kNumMaxVoicesPerPart * 2> poly_allocator_;
+  uint8_t active_note_[kNumMaxVoicesPerPart];
   uint8_t cyclic_allocation_note_counter_;
   
   uint16_t arp_seq_prescaler_;

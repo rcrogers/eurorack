@@ -54,7 +54,7 @@ void Multi::Init(bool reset_calibration) {
     part_[i].Init();
     part_[i].set_custom_pitch_table(settings_.custom_pitch_table);
   }
-  for (uint8_t i = 0; i < kNumVoices; ++i) {
+  for (uint8_t i = 0; i < kNumCVOutputs; ++i) { // TODO
     voice_[i].Init();
     cv_outputs_[i].Init(reset_calibration);
     cv_outputs_[i].assign_voices(1, &voice_[i]);
@@ -297,7 +297,7 @@ void Multi::Refresh() {
     part_[j].Refresh();
   }
 
-  for (uint8_t i = 0; i < kNumVoices; ++i) {
+  for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
     cv_outputs_[i].Refresh();
   }
 }
@@ -320,11 +320,12 @@ void Multi::Set(uint8_t address, uint8_t value) {
   }
 }
 
-void Multi::AssignVoicesToCVOutputs() {
+void Multi::AssignVoicesToCVOutputs() { // TODO voice selection
+  // TODO instead, assign parts to CV outputs
   switch (settings_.layout) {
     case LAYOUT_MONO:
     case LAYOUT_DUAL_POLYCHAINED:
-      for (uint8_t i = 0; i < kNumVoices; ++i) {
+      for (uint8_t i = 0; i < kNumSystemVoices; ++i) {
         cv_outputs_[i].assign_voices(1, &voice_[0]);
       }
       break;
@@ -345,7 +346,7 @@ void Multi::AssignVoicesToCVOutputs() {
     case LAYOUT_TWO_TWO:
     case LAYOUT_QUAD_TRIGGERS:
     case LAYOUT_QUAD_VOLTAGES:
-      for (uint8_t i = 0; i < kNumVoices; ++i) {
+      for (uint8_t i = 0; i < kNumSystemVoices; ++i) {
         cv_outputs_[i].assign_voices(1, &voice_[i]);
       }
       break;
@@ -519,7 +520,7 @@ void Multi::GetAudioSource(bool* audio_source) {
 
 void Multi::GetLedsBrightness(uint8_t* brightness) {
   if (layout_configurator_.learning()) {
-    fill(&brightness[0], &brightness[kNumVoices], 0);
+    fill(&brightness[0], &brightness[kNumCVOutputs], 0);
     for (uint8_t i = 0; i < layout_configurator_.num_notes(); ++i) {
       brightness[i] = 255;
     }
@@ -583,7 +584,7 @@ void Multi::UpdateLayout() {
   for (uint8_t i = 0; i < kNumParts; ++i) {
     part_[i].Reset();
   }
-  for (uint8_t i = 0; i < kNumVoices; ++i) {
+  for (uint8_t i = 0; i < kNumSystemVoices; ++i) {
     voice_[i].NoteOff();
   }
   
@@ -658,7 +659,7 @@ void Multi::ChangeLayout(Layout old_layout, Layout new_layout) {
   for (uint8_t i = 0; i < kNumParts; ++i) {
     part_[i].Reset();
   }
-  for (uint8_t i = 0; i < kNumVoices; ++i) {
+  for (uint8_t i = 0; i < kNumSystemVoices; ++i) {
     voice_[i].NoteOff();
   }
   
