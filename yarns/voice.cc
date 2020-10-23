@@ -185,9 +185,12 @@ bool Voice::Refresh() {
 }
 
 void CVOutput::Refresh() {
-  if (main_voice()->Refresh() || dirty_) {
-    NoteToDacCode();
-    dirty_ = false;
+  for (uint8_t i = 0; i < num_voices_; ++i) {
+    bool changed = voices_[i]->Refresh();
+    if (i == 0 && (changed || dirty_)) {
+      NoteToDacCode();
+      dirty_ = false;
+    }
   }
 }
 
