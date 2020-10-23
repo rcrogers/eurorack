@@ -322,6 +322,18 @@ class Part {
   void StartRecording();
   void DeleteSequence();
 
+  inline void NewLayout() {
+    midi_.min_note = 0;
+    midi_.max_note = 127;
+    midi_.min_velocity = 0;
+    midi_.max_velocity = 127;
+
+    voicing_.allocation_mode = num_voices_ > 1 ? VOICE_ALLOCATION_MODE_POLY : VOICE_ALLOCATION_MODE_MONO;
+    voicing_.allocation_priority = stmlib::NOTE_STACK_PRIORITY_LAST;
+    voicing_.portamento = 0;
+    voicing_.legato_mode = LEGATO_MODE_OFF;
+  }
+
   inline void Refresh() {
     uint16_t new_pos = bar_lfo_.Refresh() >> 16;
     if (

@@ -612,7 +612,7 @@ void Multi::GetLedsBrightness(uint8_t* brightness) {
   }
 }
 
-void Multi::UpdateLayout() {
+void Multi::AllocateParts() {
   // Reset and close all parts and voices.
   for (uint8_t i = 0; i < kNumParts; ++i) {
     part_[i].Reset();
@@ -625,13 +625,14 @@ void Multi::UpdateLayout() {
     case LAYOUT_MONO:
     case LAYOUT_DUAL_MONO:
     case LAYOUT_QUAD_MONO:
+    case LAYOUT_QUAD_TRIGGERS:
+    case LAYOUT_QUAD_VOLTAGES:
       {
-        uint8_t num_parts = settings_.layout == LAYOUT_MONO ? 1 : \
+        num_active_parts_ = settings_.layout == LAYOUT_MONO ? 1 : \
             (settings_.layout == LAYOUT_DUAL_MONO ? 2 : 4);
-        for (uint8_t i = 0; i < num_parts; ++i) {
+        for (uint8_t i = 0; i < num_active_parts_; ++i) {
           part_[i].AllocateVoices(&voice_[i], 1, false);
         }
-        num_active_parts_ = num_parts;
       }
       break;
     
@@ -649,16 +650,6 @@ void Multi::UpdateLayout() {
             num_voices,
             settings_.layout >= LAYOUT_DUAL_POLYCHAINED);
         num_active_parts_ = 1;
-      }
-      break;
-      
-    case LAYOUT_QUAD_TRIGGERS:
-    case LAYOUT_QUAD_VOLTAGES:
-      {
-        for (uint8_t i = 0; i < 4; ++i) {
-          part_[i].AllocateVoices(&voice_[i], 1, false);
-        }
-        num_active_parts_ = 4;
       }
       break;
       
@@ -683,6 +674,7 @@ void Multi::UpdateLayout() {
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
       {
+        CONSTRAIN(part_[0].mutable_voicing_settings()->audio_mode, 1, AUDIO_MODE_LAST - 1);
         part_[0].AllocateVoices(&voice_[0], kNumMaxVoicesPerPart, false);
         part_[1].AllocateVoices(&voice_[kNumMaxVoicesPerPart], 1, false);
         part_[2].AllocateVoices(&voice_[kNumMaxVoicesPerPart + 1], 1, false);
@@ -697,38 +689,16 @@ void Multi::UpdateLayout() {
 }
 
 void Multi::ChangeLayout(Layout old_layout, Layout new_layout) {
-  // Reset and close all parts and voices.
-  for (uint8_t i = 0; i < kNumParts; ++i) {
-    part_[i].Reset();
-  }
-  for (uint8_t i = 0; i < kNumSystemVoices; ++i) {
-    voice_[i].NoteOff();
-  }
+  AllocateParts();
   
   switch (new_layout) {
     case LAYOUT_MONO:
     case LAYOUT_DUAL_MONO:
     case LAYOUT_QUAD_MONO:
+    case LAYOUT_QUAD_VOLTAGES:
       {
-        uint8_t num_parts = new_layout == LAYOUT_MONO ? 1 : \
-            (new_layout == LAYOUT_DUAL_MONO ? 2 : 4);
-
-        for (uint8_t i = 0; i < num_parts; ++i) {
-          MidiSettings* midi = part_[i].mutable_midi_settings();
-          if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-            midi->min_note = 0;
-            midi->max_note = 127;
-          }
-          midi->min_velocity = 0;
-          midi->max_velocity = 127;
-
-          VoicingSettings* voicing = part_[i].mutable_voicing_settings();
-          voicing->allocation_mode = VOICE_ALLOCATION_MODE_MONO;
-          voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-        }
-        
         // Duplicate uninitialized voices.
-        for (uint8_t i = 1; i < num_parts; ++i) {
+        for (uint8_t i = 1; i < num_active_parts_; ++i) {
           uint8_t destination = i;
           uint8_t source = i % num_active_parts_;
           if (destination != source) {
@@ -746,68 +716,23 @@ void Multi::ChangeLayout(Layout old_layout, Layout new_layout) {
                 sizeof(SequencerSettings));
           }
         }
-        
-        for (uint8_t i = 0; i < num_parts; ++i) {
-          part_[i].AllocateVoices(&voice_[i], 1, false);
-        }
-        num_active_parts_ = num_parts;
       }
       break;
-    
-    case LAYOUT_DUAL_POLY:
-    case LAYOUT_QUAD_POLY:
-    case LAYOUT_DUAL_POLYCHAINED:
-    case LAYOUT_QUAD_POLYCHAINED:
-    case LAYOUT_OCTAL_POLYCHAINED:
-      {
-        uint8_t num_voices = settings_.layout == LAYOUT_DUAL_POLY || \
-            settings_.layout == LAYOUT_QUAD_POLYCHAINED ? 2 : \
-            (settings_.layout == LAYOUT_DUAL_POLYCHAINED ? 1 : 4);
-        
-        MidiSettings* midi = part_[0].mutable_midi_settings();
-        if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-          midi->min_note = 0;
-          midi->max_note = 127;
-        }
-        midi->min_velocity = 0;
-        midi->max_velocity = 127;
 
-        VoicingSettings* voicing = part_[0].mutable_voicing_settings();
-        voicing->allocation_mode = VOICE_ALLOCATION_MODE_POLY;
-        voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-        voicing->portamento = 0;
-        voicing->legato_mode = LEGATO_MODE_OFF;
-        
-        part_[0].AllocateVoices(
-            &voice_[0],
-            num_voices,
-            new_layout >= LAYOUT_DUAL_POLYCHAINED);
-        num_active_parts_ = 1;
-      }
-      break;
-      
     case LAYOUT_QUAD_TRIGGERS:
       {
-        for (uint8_t i = 0; i < 4; ++i) {
+        for (uint8_t i = 0; i < num_active_parts_; ++i) {
           MidiSettings* midi = part_[i].mutable_midi_settings();
           if (old_layout != LAYOUT_QUAD_TRIGGERS) {
             midi->min_note = 36 + i * 2;
             midi->max_note = 36 + i * 2;
           }
-          midi->min_velocity = 0;
-          midi->max_velocity = 127;
           midi->channel = part_[0].mutable_midi_settings()->channel;
           midi->out_mode = part_[0].mutable_midi_settings()->out_mode;
-          
-          VoicingSettings* voicing = part_[i].mutable_voicing_settings();
-          voicing->allocation_mode = VOICE_ALLOCATION_MODE_MONO;
-          voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-          voicing->portamento = 0;
-          voicing->legato_mode = LEGATO_MODE_OFF;
         }
         
         // Duplicate sequencer settings.
-        for (uint8_t i = 1; i < 4; ++i) {
+        for (uint8_t i = 1; i < num_active_parts_; ++i) {
           uint8_t destination = i;
           uint8_t source = i % num_active_parts_;
           if (destination != source) {
@@ -817,189 +742,24 @@ void Multi::ChangeLayout(Layout old_layout, Layout new_layout) {
                 sizeof(SequencerSettings));
           }
         }
-        
-        for (uint8_t i = 0; i < 4; ++i) {
-          part_[i].AllocateVoices(&voice_[i], 1, false);
-        }
-        num_active_parts_ = 4;
-      }
-      break;
-    
-    case LAYOUT_THREE_ONE:
-    case LAYOUT_TWO_ONE:
-      {
-        uint8_t num_poly_voices = (new_layout == LAYOUT_THREE_ONE) ? 3 : 2;
-
-        MidiSettings* midi = part_[0].mutable_midi_settings();
-        if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-          midi->min_note = 0;
-          midi->max_note = 127;
-        }
-        midi->min_velocity = 0;
-        midi->max_velocity = 127;
-
-        VoicingSettings* voicing = part_[0].mutable_voicing_settings();
-        voicing->allocation_mode = VOICE_ALLOCATION_MODE_POLY;
-        voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-        voicing->portamento = 0;
-        voicing->legato_mode = LEGATO_MODE_OFF;
-        part_[0].AllocateVoices(&voice_[0], num_poly_voices, false);
-
-        midi = part_[1].mutable_midi_settings();
-        if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-          midi->min_note = 0;
-          midi->max_note = 127;
-        }
-        midi->min_velocity = 0;
-        midi->max_velocity = 127;
-
-        voicing = part_[1].mutable_voicing_settings();
-        voicing->allocation_mode = VOICE_ALLOCATION_MODE_MONO;
-        voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-        voicing->portamento = 0;
-        voicing->legato_mode = LEGATO_MODE_OFF;
-        part_[1].AllocateVoices(&voice_[num_poly_voices], 1, false);
-
-        num_active_parts_ = 2;
-      }
-      break;
-    
-    case LAYOUT_TWO_TWO:
-      {
-        MidiSettings* midi = part_[0].mutable_midi_settings();
-        if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-          midi->min_note = 0;
-          midi->max_note = 127;
-        }
-        midi->min_velocity = 0;
-        midi->max_velocity = 127;
-
-        VoicingSettings* voicing = part_[0].mutable_voicing_settings();
-        voicing->allocation_mode = VOICE_ALLOCATION_MODE_POLY;
-        voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-        voicing->portamento = 0;
-        voicing->legato_mode = LEGATO_MODE_OFF;
-        part_[0].AllocateVoices(&voice_[0], 2, false);
-
-        for (uint8_t i = 1; i < 3; ++i) {
-          midi = part_[i].mutable_midi_settings();
-          if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-            midi->min_note = 0;
-            midi->max_note = 127;
-          }
-          midi->min_velocity = 0;
-          midi->max_velocity = 127;
-
-          voicing = part_[i].mutable_voicing_settings();
-          voicing->allocation_mode = VOICE_ALLOCATION_MODE_MONO;
-          voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-          voicing->portamento = 0;
-          voicing->legato_mode = LEGATO_MODE_OFF;
-          part_[i].AllocateVoices(&voice_[i + 1], 1, false);
-        }
-
-        num_active_parts_ = 3;
       }
       break;
 
-    case LAYOUT_PARAPHONIC_PLUS_TWO:
-      {
-        MidiSettings* midi = part_[0].mutable_midi_settings();
-        if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-          midi->min_note = 0;
-          midi->max_note = 127;
-        }
-        midi->min_velocity = 0;
-        midi->max_velocity = 127;
-
-        VoicingSettings* voicing = part_[0].mutable_voicing_settings();
-        voicing->allocation_mode = VOICE_ALLOCATION_MODE_POLY;
-        voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-        voicing->portamento = 0;
-        voicing->legato_mode = LEGATO_MODE_OFF;
-        part_[0].AllocateVoices(&voice_[0], kNumMaxVoicesPerPart, false);
-
-        CONSTRAIN(voicing->audio_mode, 1, AUDIO_MODE_LAST - 1);
-
-        for (uint8_t i = 1; i < 3; ++i) {
-          midi = part_[i].mutable_midi_settings();
-          if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-            midi->min_note = 0;
-            midi->max_note = 127;
-          }
-          midi->min_velocity = 0;
-          midi->max_velocity = 127;
-
-          voicing = part_[i].mutable_voicing_settings();
-          voicing->allocation_mode = VOICE_ALLOCATION_MODE_MONO;
-          voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-          voicing->portamento = 0;
-          voicing->legato_mode = LEGATO_MODE_OFF;
-          part_[i].AllocateVoices(&voice_[i + kNumMaxVoicesPerPart - 1], 1, false);
-        }
-
-        num_active_parts_ = 3;
-      }
-      break;
-
-
-    case LAYOUT_QUAD_VOLTAGES:
-      {
-        uint8_t num_parts = 4;
-        for (uint8_t i = 0; i < num_parts; ++i) {
-          MidiSettings* midi = part_[i].mutable_midi_settings();
-          if (old_layout == LAYOUT_QUAD_TRIGGERS) {
-            midi->min_note = 0;
-            midi->max_note = 127;
-          }
-          midi->min_velocity = 0;
-          midi->max_velocity = 127;
-          VoicingSettings* voicing = part_[i].mutable_voicing_settings();
-          voicing->allocation_mode = VOICE_ALLOCATION_MODE_MONO;
-          voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
-        }
-      
-        // Duplicate uninitialized voices.
-        for (uint8_t i = 1; i < num_parts; ++i) {
-          uint8_t destination = i;
-          uint8_t source = i % num_active_parts_;
-          if (destination != source) {
-            memcpy(
-                part_[destination].mutable_midi_settings(),
-                part_[source].mutable_midi_settings(),
-                sizeof(MidiSettings));
-            memcpy(
-                part_[destination].mutable_voicing_settings(),
-                part_[source].mutable_voicing_settings(),
-                sizeof(VoicingSettings));
-            memcpy(
-                part_[destination].mutable_sequencer_settings(),
-                part_[source].mutable_sequencer_settings(),
-                sizeof(SequencerSettings));
-          }
-        }
-        for (uint8_t i = 0; i < num_parts; ++i) {
-          part_[i].AllocateVoices(&voice_[i], 1, false);
-        }
-        num_active_parts_ = num_parts;
-      }
-      break;
-    
     default:
       break;
   }
   
   for (uint8_t i = 0; i < num_active_parts_; ++i) {
+    part_[i].NewLayout();
     part_[i].set_siblings(num_active_parts_ > 1);
   }
-  AssignVoicesToCVOutputs();
 }
 
 void Multi::Touch() {
   Stop();
 
   internal_clock_.set_tempo(settings_.clock_tempo);
-  UpdateLayout();
+  AllocateParts();
   
   for (uint8_t i = 0; i < kNumParts; ++i) {
     part_[i].Touch();
@@ -1018,7 +778,7 @@ void Multi::StartSong() {
   part_[1].mutable_voicing_settings()->audio_mode = 0x83;
   part_[2].mutable_voicing_settings()->audio_mode = 0x84;
   part_[3].mutable_voicing_settings()->audio_mode = 0x86;
-  UpdateLayout();
+  AllocateParts();
   settings_.clock_tempo = 140;
   Stop();
   Start(false);
