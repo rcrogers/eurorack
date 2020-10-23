@@ -285,9 +285,16 @@ class CVOutput {
     num_voices_ = num;
     for (uint8_t i = 0; i < num_voices_; ++i) {
       voices_[i] = list + i;
-      voices_[i]->oscillator()->Init(calibration_dac_code(3) - calibration_dac_code(8),
-        calibration_dac_code(3));
+      voices_[i]->oscillator()->Init(scale() / num_voices_, offset());
     }
+  }
+
+  inline int32_t scale() const {
+    return offset() - volts_dac_code(5);
+  }
+
+  inline int32_t offset() const {
+    return volts_dac_code(0);
   }
 
   inline Voice* main_voice() const {
@@ -298,8 +305,12 @@ class CVOutput {
     return !!(main_voice()->audio_mode());
   }
 
-  inline uint16_t ReadSample() { // TODO average among voices
-    return main_voice()->ReadSample();
+  inline uint16_t ReadSample() {
+    uint16_t mix = 0;
+    for (uint8_t i = 0; i < num_voices_; ++i) {
+      mix += voices_[i]->ReadSample();
+    }
+    return mix;
   }
 
   void Refresh();

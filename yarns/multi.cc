@@ -54,8 +54,10 @@ void Multi::Init(bool reset_calibration) {
     part_[i].Init();
     part_[i].set_custom_pitch_table(settings_.custom_pitch_table);
   }
-  for (uint8_t i = 0; i < kNumCVOutputs; ++i) { // TODO
+  for (uint8_t i = 0; i < kNumSystemVoices; ++i) {
     voice_[i].Init();
+  }
+  for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
     cv_outputs_[i].Init(reset_calibration);
     cv_outputs_[i].assign_voices(1, &voice_[i]);
   }
@@ -320,12 +322,11 @@ void Multi::Set(uint8_t address, uint8_t value) {
   }
 }
 
-void Multi::AssignVoicesToCVOutputs() { // TODO voice selection
-  // TODO instead, assign parts to CV outputs
+void Multi::AssignVoicesToCVOutputs() {
   switch (settings_.layout) {
     case LAYOUT_MONO:
     case LAYOUT_DUAL_POLYCHAINED:
-      for (uint8_t i = 0; i < kNumSystemVoices; ++i) {
+      for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
         cv_outputs_[i].assign_voices(1, &voice_[0]);
       }
       break;
@@ -346,7 +347,7 @@ void Multi::AssignVoicesToCVOutputs() { // TODO voice selection
     case LAYOUT_TWO_TWO:
     case LAYOUT_QUAD_TRIGGERS:
     case LAYOUT_QUAD_VOLTAGES:
-      for (uint8_t i = 0; i < kNumSystemVoices; ++i) {
+      for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
         cv_outputs_[i].assign_voices(1, &voice_[i]);
       }
       break;
@@ -356,6 +357,13 @@ void Multi::AssignVoicesToCVOutputs() { // TODO voice selection
       cv_outputs_[1].assign_voices(1, &voice_[1]);
       cv_outputs_[2].assign_voices(1, &voice_[2]);
       cv_outputs_[3].assign_voices(1, &voice_[2]);
+      break;
+
+    case LAYOUT_PARAPHONIC_PLUS_TWO:
+      cv_outputs_[0].assign_voices(kNumMaxVoicesPerPart, &voice_[0]);
+      cv_outputs_[1].assign_voices(1, &voice_[kNumMaxVoicesPerPart]);
+      cv_outputs_[2].assign_voices(1, &voice_[kNumMaxVoicesPerPart]);
+      cv_outputs_[3].assign_voices(1, &voice_[kNumMaxVoicesPerPart + 1]);
       break;
   }
 }
@@ -442,6 +450,17 @@ void Multi::GetCvGate(uint16_t* cv, bool* gate) {
       gate[3] = clock();
       break;
 
+    case LAYOUT_PARAPHONIC_PLUS_TWO:
+      cv[0] = 0; // Paraphonic
+      cv[1] = cv_outputs_[1].note_dac_code();
+      cv[2] = cv_outputs_[2].aux_cv_dac_code();
+      cv[3] = cv_outputs_[3].note_dac_code();
+      gate[0] = voice_[0].gate(); // TODO
+      gate[1] = voice_[kNumMaxVoicesPerPart].gate();
+      gate[2] = voice_[kNumMaxVoicesPerPart].trigger();
+      gate[3] = voice_[kNumMaxVoicesPerPart + 1].gate();
+      break;
+
     case LAYOUT_QUAD_TRIGGERS:
       cv[0] = cv_outputs_[0].trigger_dac_code();
       cv[1] = cv_outputs_[1].trigger_dac_code();
@@ -508,6 +527,13 @@ void Multi::GetAudioSource(bool* audio_source) {
       audio_source[3] = cv_outputs_[3].has_audio();
       break;
 
+    case LAYOUT_PARAPHONIC_PLUS_TWO:
+      audio_source[0] = true;
+      audio_source[1] = cv_outputs_[1].has_audio();
+      audio_source[2] = false;
+      audio_source[3] = cv_outputs_[3].has_audio();
+      break;
+
     case LAYOUT_QUAD_TRIGGERS:
     case LAYOUT_QUAD_VOLTAGES:
       audio_source[0] = false;
@@ -568,6 +594,13 @@ void Multi::GetLedsBrightness(uint8_t* brightness) {
       brightness[1] = voice_[1].gate() ? (voice_[1].velocity() << 1) : 0;
       brightness[2] = voice_[2].gate() ? 255 : 0;
       brightness[3] = clock() ? voice_[2].aux_cv_2() : 0;
+      break;
+
+    case LAYOUT_PARAPHONIC_PLUS_TWO:
+      brightness[0] = voice_[0].gate() ? (voice_[0].velocity() << 1) : 0; //TODO
+      brightness[1] = voice_[4].gate() ? (voice_[4].velocity() << 1) : 0;
+      brightness[2] = voice_[4].aux_cv();
+      brightness[3] = voice_[5].gate() ? (voice_[5].velocity() << 1) : 0;
       break;
 
     case LAYOUT_QUAD_VOLTAGES:
@@ -644,6 +677,15 @@ void Multi::UpdateLayout() {
         part_[0].AllocateVoices(&voice_[0], 2, false);
         part_[1].AllocateVoices(&voice_[2], 1, false);
         part_[2].AllocateVoices(&voice_[3], 1, false);
+        num_active_parts_ = 3;
+      }
+      break;
+
+    case LAYOUT_PARAPHONIC_PLUS_TWO:
+      {
+        part_[0].AllocateVoices(&voice_[0], kNumMaxVoicesPerPart, false);
+        part_[1].AllocateVoices(&voice_[kNumMaxVoicesPerPart], 1, false);
+        part_[2].AllocateVoices(&voice_[kNumMaxVoicesPerPart + 1], 1, false);
         num_active_parts_ = 3;
       }
       break;
@@ -859,6 +901,47 @@ void Multi::ChangeLayout(Layout old_layout, Layout new_layout) {
         num_active_parts_ = 3;
       }
       break;
+
+    case LAYOUT_PARAPHONIC_PLUS_TWO:
+      {
+        MidiSettings* midi = part_[0].mutable_midi_settings();
+        if (old_layout == LAYOUT_QUAD_TRIGGERS) {
+          midi->min_note = 0;
+          midi->max_note = 127;
+        }
+        midi->min_velocity = 0;
+        midi->max_velocity = 127;
+
+        VoicingSettings* voicing = part_[0].mutable_voicing_settings();
+        voicing->allocation_mode = VOICE_ALLOCATION_MODE_POLY;
+        voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
+        voicing->portamento = 0;
+        voicing->legato_mode = LEGATO_MODE_OFF;
+        part_[0].AllocateVoices(&voice_[0], kNumMaxVoicesPerPart, false);
+
+        CONSTRAIN(voicing->audio_mode, 1, AUDIO_MODE_LAST - 1);
+
+        for (uint8_t i = 1; i < 3; ++i) {
+          midi = part_[i].mutable_midi_settings();
+          if (old_layout == LAYOUT_QUAD_TRIGGERS) {
+            midi->min_note = 0;
+            midi->max_note = 127;
+          }
+          midi->min_velocity = 0;
+          midi->max_velocity = 127;
+
+          voicing = part_[i].mutable_voicing_settings();
+          voicing->allocation_mode = VOICE_ALLOCATION_MODE_MONO;
+          voicing->allocation_priority = NOTE_STACK_PRIORITY_LAST;
+          voicing->portamento = 0;
+          voicing->legato_mode = LEGATO_MODE_OFF;
+          part_[i].AllocateVoices(&voice_[i + kNumMaxVoicesPerPart - 1], 1, false);
+        }
+
+        num_active_parts_ = 3;
+      }
+      break;
+
 
     case LAYOUT_QUAD_VOLTAGES:
       {
