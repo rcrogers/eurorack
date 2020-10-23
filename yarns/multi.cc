@@ -690,7 +690,10 @@ void Multi::AllocateParts() {
 
 void Multi::ChangeLayout(Layout old_layout, Layout new_layout) {
   AllocateParts();
-  
+  for (uint8_t i = 0; i < num_active_parts_; ++i) {
+    part_[i].NewLayout();
+    part_[i].set_siblings(num_active_parts_ > 1);
+  }
   switch (new_layout) {
     case LAYOUT_MONO:
     case LAYOUT_DUAL_MONO:
@@ -747,11 +750,6 @@ void Multi::ChangeLayout(Layout old_layout, Layout new_layout) {
 
     default:
       break;
-  }
-  
-  for (uint8_t i = 0; i < num_active_parts_; ++i) {
-    part_[i].NewLayout();
-    part_[i].set_siblings(num_active_parts_ > 1);
   }
 }
 
