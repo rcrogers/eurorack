@@ -598,9 +598,9 @@ void Multi::GetLedsBrightness(uint8_t* brightness) {
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
       brightness[0] = voice_[0].gate() ? (voice_[0].velocity() << 1) : 0; //TODO
-      brightness[1] = voice_[4].gate() ? (voice_[4].velocity() << 1) : 0;
-      brightness[2] = voice_[4].aux_cv();
-      brightness[3] = voice_[5].gate() ? (voice_[5].velocity() << 1) : 0;
+      brightness[1] = voice_[kNumMaxVoicesPerPart].gate() ? (voice_[kNumMaxVoicesPerPart].velocity() << 1) : 0;
+      brightness[2] = voice_[kNumMaxVoicesPerPart].aux_cv();
+      brightness[3] = voice_[kNumMaxVoicesPerPart + 1].gate() ? (voice_[kNumMaxVoicesPerPart + 1].velocity() << 1) : 0;
       break;
 
     case LAYOUT_QUAD_VOLTAGES:
