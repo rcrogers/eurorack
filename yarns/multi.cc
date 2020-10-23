@@ -59,7 +59,7 @@ void Multi::Init(bool reset_calibration) {
   }
   for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
     cv_outputs_[i].Init(reset_calibration);
-    cv_outputs_[i].assign_voices(1, &voice_[i]);
+    cv_outputs_[i].assign_voices(&voice_[i]);
   }
   running_ = false;
   latched_ = false;
@@ -327,17 +327,17 @@ void Multi::AssignVoicesToCVOutputs() {
     case LAYOUT_MONO:
     case LAYOUT_DUAL_POLYCHAINED:
       for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
-        cv_outputs_[i].assign_voices(1, &voice_[0]);
+        cv_outputs_[i].assign_voices(&voice_[0]);
       }
       break;
 
     case LAYOUT_DUAL_MONO:
     case LAYOUT_DUAL_POLY:
     case LAYOUT_QUAD_POLYCHAINED:
-      cv_outputs_[0].assign_voices(1, &voice_[0]);
-      cv_outputs_[1].assign_voices(1, &voice_[1]);
-      cv_outputs_[2].assign_voices(1, &voice_[0]);
-      cv_outputs_[3].assign_voices(1, &voice_[1]);
+      cv_outputs_[0].assign_voices(&voice_[0]);
+      cv_outputs_[1].assign_voices(&voice_[1]);
+      cv_outputs_[2].assign_voices(&voice_[0]);
+      cv_outputs_[3].assign_voices(&voice_[1]);
       break;
 
     case LAYOUT_QUAD_MONO:
@@ -348,22 +348,22 @@ void Multi::AssignVoicesToCVOutputs() {
     case LAYOUT_QUAD_TRIGGERS:
     case LAYOUT_QUAD_VOLTAGES:
       for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
-        cv_outputs_[i].assign_voices(1, &voice_[i]);
+        cv_outputs_[i].assign_voices(&voice_[i]);
       }
       break;
 
     case LAYOUT_TWO_ONE:
-      cv_outputs_[0].assign_voices(1, &voice_[0]);
-      cv_outputs_[1].assign_voices(1, &voice_[1]);
-      cv_outputs_[2].assign_voices(1, &voice_[2]);
-      cv_outputs_[3].assign_voices(1, &voice_[2]);
+      cv_outputs_[0].assign_voices(&voice_[0]);
+      cv_outputs_[1].assign_voices(&voice_[1]);
+      cv_outputs_[2].assign_voices(&voice_[2]);
+      cv_outputs_[3].assign_voices(&voice_[2]);
       break;
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
-      cv_outputs_[0].assign_voices(kNumMaxVoicesPerPart, &voice_[0]);
-      cv_outputs_[1].assign_voices(1, &voice_[kNumMaxVoicesPerPart]);
-      cv_outputs_[2].assign_voices(1, &voice_[kNumMaxVoicesPerPart]);
-      cv_outputs_[3].assign_voices(1, &voice_[kNumMaxVoicesPerPart + 1]);
+      cv_outputs_[0].assign_voices(&voice_[0], kNumMaxVoicesPerPart);
+      cv_outputs_[1].assign_voices(&voice_[kNumMaxVoicesPerPart]);
+      cv_outputs_[2].assign_voices(&voice_[kNumMaxVoicesPerPart]);
+      cv_outputs_[3].assign_voices(&voice_[kNumMaxVoicesPerPart + 1]);
       break;
   }
 }

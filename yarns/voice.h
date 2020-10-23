@@ -281,12 +281,15 @@ class CVOutput {
 
   void Calibrate(uint16_t* calibrated_dac_code);
 
-  inline void assign_voices(uint8_t num, Voice* list) {
+  inline void assign_voices(Voice* list, uint8_t num) {
     num_voices_ = num;
     for (uint8_t i = 0; i < num_voices_; ++i) {
       voices_[i] = list + i;
       voices_[i]->oscillator()->Init(scale() / num_voices_, offset());
     }
+  }
+  inline void assign_voices(Voice* list) {
+    return assign_voices(list, 1);
   }
 
   inline int32_t scale() const {
