@@ -59,6 +59,7 @@ void Voice::Init() {
   vibrato_range_ = 0;
   
   synced_lfo_.Init();
+  envelope_.Init();
   portamento_phase_ = 0;
   portamento_phase_increment_ = 1U << 31;
   portamento_exponential_shape_ = false;

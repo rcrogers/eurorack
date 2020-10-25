@@ -32,6 +32,7 @@
 #include "stmlib/stmlib.h"
 #include "stmlib/utils/ring_buffer.h"
 
+#include "yarns/envelope.h"
 #include "yarns/synced_lfo.h"
 #include "yarns/part.h"
 
@@ -268,6 +269,7 @@ class Voice {
   uint8_t oscillator_pw_initial_;
   int8_t oscillator_pw_mod_;
   Oscillator oscillator_;
+  Envelope envelope_;
 
   DISALLOW_COPY_AND_ASSIGN(Voice);
 };
