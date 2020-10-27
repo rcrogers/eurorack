@@ -385,7 +385,7 @@ const Setting Settings::settings_[] = {
   {
     "CV", "CV OUT",
     SETTING_DOMAIN_PART, { PART_VOICING_AUX_CV, 0 },
-    SETTING_UNIT_ENUMERATION, 0, 7, voicing_aux_cv_values,
+    SETTING_UNIT_ENUMERATION, 0, MOD_AUX_LAST - 1, voicing_aux_cv_values,
     31, 22,
   },
   {
