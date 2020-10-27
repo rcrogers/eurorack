@@ -317,7 +317,7 @@ uint32_t Oscillator::ComputePhaseIncrement(int16_t midi_pitch) {
 void Oscillator::RenderSilence() {
   size_t size = kAudioBlockSize;
   while (size--) {
-    audio_buffer_.Overwrite(offset_);
+    WriteSample(0);
   }
 }
 
@@ -325,16 +325,14 @@ void Oscillator::RenderSine(uint32_t phase_increment) {
   size_t size = kAudioBlockSize;
   while (size--) {
     phase_ += phase_increment;
-    int32_t sample = Interpolate1022(wav_sine, phase_);
-    audio_buffer_.Overwrite(offset_ - (scale_ * sample >> 16));
+    WriteSample(Interpolate1022(wav_sine, phase_));
   }
 }
 
 void Oscillator::RenderNoise() {
   size_t size = kAudioBlockSize;
   while (size--) {
-    int16_t sample = Random::GetSample();
-    audio_buffer_.Overwrite(offset_ - (scale_ * sample >> 16));
+    WriteSample(Random::GetSample());
   }
 }
 
@@ -354,7 +352,7 @@ void Oscillator::RenderSaw(uint32_t phase_increment) {
     }
     next_sample += phase >> 17;
     this_sample = (this_sample - 16384) << 1;
-    audio_buffer_.Overwrite(offset_ - (scale_ * this_sample >> 16));
+    WriteSample(this_sample);
   }
   next_sample_ = next_sample;
   phase_ = phase;
@@ -395,7 +393,7 @@ void Oscillator::RenderSquare(
       integrator_state += integrator_coefficient * (this_sample - integrator_state) >> 15;
       this_sample = integrator_state << 3;
     }
-    audio_buffer_.Overwrite(offset_ - (scale_ * this_sample >> 16));
+    WriteSample(this_sample);
   }
   integrator_state_ = integrator_state;
   next_sample_ = next_sample;

@@ -103,6 +103,10 @@ class Oscillator {
   void RenderSaw(uint32_t phase_increment);
   void RenderSquare(uint32_t phase_increment, uint32_t pw, bool integrate);
 
+  inline void WriteSample(int32_t sample) {
+    audio_buffer_.Overwrite(offset_ - (scale_ * sample >> 16));
+  }
+
   inline int32_t ThisBlepSample(uint32_t t) {
     if (t > 65535) {
       t = 65535;
