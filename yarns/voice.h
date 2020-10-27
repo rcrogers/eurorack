@@ -41,13 +41,15 @@ namespace yarns {
 const uint16_t kNumOctaves = 11;
 const size_t kAudioBlockSize = 64;
 
-enum TriggerShape {
-  TRIGGER_SHAPE_SQUARE,
-  TRIGGER_SHAPE_LINEAR,
-  TRIGGER_SHAPE_EXPONENTIAL,
-  TRIGGER_SHAPE_RING,
-  TRIGGER_SHAPE_STEPS,
-  TRIGGER_SHAPE_NOISE_BURST
+enum EnvelopeCurve {
+  ENVELOPE_CURVE_SQUARE,
+  ENVELOPE_CURVE_LINEAR,
+  ENVELOPE_CURVE_EXPONENTIAL,
+  ENVELOPE_CURVE_RING,
+  ENVELOPE_CURVE_STEPS,
+  ENVELOPE_CURVE_NOISE_BURST,
+
+  ENVELOPE_CURVE_LAST
 };
 
 enum AudioMode {
@@ -171,8 +173,8 @@ class Voice {
   inline void set_trigger_scale(uint8_t trigger_scale) {
     trigger_scale_ = trigger_scale;
   }
-  inline void set_trigger_shape(uint8_t trigger_shape) {
-    trigger_shape_ = trigger_shape;
+  inline void set_envelope_curve(uint8_t envelope_curve) {
+    envelope_curve_ = envelope_curve;
   }
   inline void set_aux_cv(uint8_t aux_cv_source) {
     aux_cv_source_ = aux_cv_source;
@@ -246,7 +248,7 @@ class Voice {
   uint8_t vibrato_control_source_;
   
   uint8_t trigger_duration_;
-  uint8_t trigger_shape_;
+  uint8_t envelope_curve_;
   bool trigger_scale_;
   uint8_t aux_cv_source_;
   uint8_t aux_cv_source_2_;

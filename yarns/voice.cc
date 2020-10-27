@@ -257,17 +257,17 @@ int32_t Voice::trigger_value() const {
   } else {
     int32_t velocity_coefficient = trigger_scale_ ? mod_velocity_ << 8 : 32768;
     int32_t value = 0;
-    switch(trigger_shape_) {
-      case TRIGGER_SHAPE_SQUARE:
+    switch(envelope_curve_) {
+      case ENVELOPE_CURVE_SQUARE:
         value = 32767;
         break;
-      case TRIGGER_SHAPE_LINEAR:
+      case ENVELOPE_CURVE_LINEAR:
         value = 32767 - (trigger_phase_ >> 17);
         break;
       default:
         {
           const int16_t* table = waveform_table[
-              trigger_shape_ - TRIGGER_SHAPE_EXPONENTIAL];
+              envelope_curve_ - ENVELOPE_CURVE_EXPONENTIAL];
           value = Interpolate824(table, trigger_phase_);
         }
         break;

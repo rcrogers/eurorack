@@ -838,7 +838,7 @@ void Part::TouchVoices() {
     voice_[i]->set_vibrato_control_source(voicing_.vibrato_control_source);
     voice_[i]->set_trigger_duration(voicing_.trigger_duration);
     voice_[i]->set_trigger_scale(voicing_.trigger_scale);
-    voice_[i]->set_trigger_shape(voicing_.trigger_shape);
+    voice_[i]->set_envelope_curve(voicing_.envelope_curve);
     voice_[i]->set_aux_cv(voicing_.aux_cv);
     voice_[i]->set_aux_cv_2(voicing_.aux_cv_2);
     voice_[i]->set_audio_mode(voicing_.audio_mode);
@@ -880,7 +880,7 @@ void Part::Set(uint8_t address, uint8_t value) {
       case PART_VOICING_VIBRATO_INITIAL:
       case PART_VOICING_VIBRATO_CONTROL_SOURCE:
       case PART_VOICING_TRIGGER_DURATION:
-      case PART_VOICING_TRIGGER_SHAPE:
+      case PART_VOICING_ENVELOPE_CURVE:
       case PART_VOICING_TRIGGER_SCALE:
       case PART_VOICING_AUX_CV:
       case PART_VOICING_AUX_CV_2:
