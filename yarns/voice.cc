@@ -173,7 +173,13 @@ bool Voice::Refresh() {
     --trigger_pulse_;
   }
   
-  envelope_.Refresh();
+  if (trigger_phase_increment_) {
+    trigger_phase_ += trigger_phase_increment_;
+    if (trigger_phase_ < trigger_phase_increment_) {
+      trigger_phase_ = 0;
+      trigger_phase_increment_ = 0;
+    }
+  }
   bool changed = note != note_;
   note_ = note;
   return changed;
@@ -220,6 +226,8 @@ void Voice::NoteOn(
   if (trigger) {
     envelope_.Trigger(ENV_SEGMENT_ATTACK);
     trigger_pulse_ = trigger_duration_ * 8;
+    trigger_phase_ = 0;
+    trigger_phase_increment_ = lut_portamento_increments[trigger_duration_];
   }
   gate_ = true;
 }
@@ -245,8 +253,29 @@ void Voice::ControlChange(uint8_t controller, uint8_t value) {
 }
 
 int32_t Voice::trigger_value() const {
-  int32_t velocity_coefficient = trigger_scale_ ? mod_velocity_ << 8 : 32768;
-  return envelope_.value() * velocity_coefficient >> 15;
+  if (trigger_phase_ <= trigger_phase_increment_) {
+    return 0;
+  } else {
+    int32_t velocity_coefficient = trigger_scale_ ? mod_velocity_ << 8 : 32768;
+    int32_t value = 0;
+    switch(envelope_curve_) {
+      case ENVELOPE_CURVE_SQUARE:
+        value = 32767;
+        break;
+      case ENVELOPE_CURVE_LINEAR:
+        value = 32767 - (trigger_phase_ >> 17);
+        break;
+      default:
+        {
+          const int16_t* table = waveform_table[
+              envelope_curve_ - ENVELOPE_CURVE_EXPONENTIAL];
+          value = Interpolate824(table, trigger_phase_);
+        }
+        break;
+    }
+    value = value * velocity_coefficient >> 15;
+    return value;
+  }
 }
 
 static const uint16_t kHighestNote = 128 * 128;
