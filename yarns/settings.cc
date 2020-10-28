@@ -72,7 +72,7 @@ const char* const voicing_allocation_priority_values[] = {
   "LAST", "LOW", "HIGH", "FIRST"
 };
 
-const char* const envelope_curve_values[] = {
+const char* const trigger_shape_values[] = {
   "SQ", "LINEAR", "EXPO", "RING", "STEP", "BURST"
 };
 
@@ -378,8 +378,8 @@ const Setting Settings::settings_[] = {
   },
   {
     "T\x88", "TRIG SHAPE",
-    SETTING_DOMAIN_PART, { PART_VOICING_ENVELOPE_CURVE, 0 },
-    SETTING_UNIT_ENUMERATION, 0, ENVELOPE_CURVE_LAST - 1, envelope_curve_values,
+    SETTING_DOMAIN_PART, { PART_VOICING_TRIGGER_SHAPE, 0 },
+    SETTING_UNIT_ENUMERATION, 0, 5, trigger_shape_values,
     30, 21,
   },
   {
@@ -604,7 +604,7 @@ const SettingIndex menu_live_poly[] = {
 const SettingIndex menu_live_quad_triggers[] = {
   SETTING_VOICING_TRIGGER_DURATION,
   SETTING_VOICING_TRIGGER_SCALE,
-  SETTING_VOICING_ENVELOPE_CURVE,
+  SETTING_VOICING_TRIGGER_SHAPE,
   SETTING_SEQUENCER_CLOCK_DIVISION,
   SETTING_SEQUENCER_RHYTHM_PATTERN,
   MENU_EUCLIDEAN,

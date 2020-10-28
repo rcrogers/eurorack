@@ -164,7 +164,7 @@ struct VoicingSettings {
   uint8_t tuning_system;
   uint8_t trigger_duration;
   uint8_t trigger_scale;
-  uint8_t envelope_curve;
+  uint8_t trigger_shape;
   uint8_t aux_cv;
   uint8_t audio_mode;
   uint8_t aux_cv_2;
@@ -200,7 +200,7 @@ enum PartSetting {
   PART_VOICING_TUNING_SYSTEM,
   PART_VOICING_TRIGGER_DURATION,
   PART_VOICING_TRIGGER_SCALE,
-  PART_VOICING_ENVELOPE_CURVE,
+  PART_VOICING_TRIGGER_SHAPE,
   PART_VOICING_AUX_CV,
   PART_VOICING_AUDIO_MODE,
   PART_VOICING_AUX_CV_2,
