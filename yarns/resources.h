@@ -44,8 +44,6 @@ typedef uint8_t ResourceId;
 
 extern const char* string_table[];
 
-extern const uint16_t* lookup_table_table[];
-
 extern const int16_t* lookup_table_signed_table[];
 
 extern const int16_t* waveform_table[];

@@ -41,17 +41,6 @@ namespace yarns {
 const uint16_t kNumOctaves = 11;
 const size_t kAudioBlockSize = 64;
 
-enum EnvelopeCurve {
-  ENVELOPE_CURVE_SQUARE,
-  ENVELOPE_CURVE_LINEAR,
-  ENVELOPE_CURVE_EXPONENTIAL,
-  ENVELOPE_CURVE_RING,
-  ENVELOPE_CURVE_STEPS,
-  ENVELOPE_CURVE_NOISE_BURST,
-
-  ENVELOPE_CURVE_LAST
-};
-
 enum AudioMode {
   AUDIO_MODE_OFF,
   AUDIO_MODE_SAW,
@@ -104,6 +93,7 @@ class Oscillator {
   void RenderSquare(uint32_t phase_increment, uint32_t pw, bool integrate);
 
   inline void WriteSample(int32_t sample) {
+    // TODO apply envelope value
     audio_buffer_.Overwrite(offset_ - (scale_ * sample >> 16));
   }
 
@@ -268,8 +258,6 @@ class Voice {
   uint16_t retrigger_delay_;
   
   uint16_t trigger_pulse_;
-  uint32_t trigger_phase_increment_;
-  uint32_t trigger_phase_;
   
   uint8_t audio_mode_;
   uint8_t oscillator_pw_initial_;

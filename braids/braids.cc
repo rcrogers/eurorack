@@ -286,7 +286,7 @@ void RenderBlock() {
       sample = render_buffer[i] & bit_mask;
     }
     sample = sample * gain_lp >> 16;
-    gain_lp += (gain - gain_lp) >> 4;
+    gain_lp += (gain - gain_lp) >> 4; // TODO wtf
     int16_t warped = ws.Transform(sample);
     render_buffer[i] = Mix(sample, warped, signature);
   }

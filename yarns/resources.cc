@@ -503,13 +503,6 @@ const uint16_t lut_consonance[] = {
       16,      9,      4,      1,
 };
 
-
-const uint16_t* lookup_table_table[] = {
-  lut_env_expo,
-  lut_arpeggiator_patterns,
-  lut_consonance,
-};
-
 const int16_t lut_scale_pythagorean[] = {
        0,    -13,      5,     -8,
       10,     -3,     15,      3,
