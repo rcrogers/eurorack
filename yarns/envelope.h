@@ -49,9 +49,9 @@ class Envelope {
     return static_cast<EnvelopeSegment>(segment_);
   }
 
-  inline void Update(int32_t a, int32_t d) {
-    increment_[ENV_SEGMENT_ATTACK] = lut_portamento_increments[a]; // TODO
-    increment_[ENV_SEGMENT_DECAY] = lut_portamento_increments[d]; // TODO
+  inline void Update(uint8_t a, uint8_t d) {
+    increment_[ENV_SEGMENT_ATTACK] = lut_portamento_increments[a];
+    increment_[ENV_SEGMENT_DECAY] = lut_portamento_increments[d];
   }
   
   inline void Trigger(EnvelopeSegment segment) {

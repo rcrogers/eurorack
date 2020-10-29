@@ -669,7 +669,8 @@ void Part::DispatchSortedNotes(bool unison) {
           Tune(note_entry.note),
           note_entry.velocity,
           voicing_.portamento,
-          !voice_[i]->gate_on());
+          active_note_[i] != note_entry.note && voicing_.legato_mode == LEGATO_MODE_OFF
+      );
       active_note_[i] = note_entry.note;
     } else {
       voice_[i]->NoteOff();

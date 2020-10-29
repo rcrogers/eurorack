@@ -86,7 +86,7 @@ class Oscillator {
   Oscillator() { }
   ~Oscillator() { }
   void Init(int32_t scale, int32_t offset);
-  void Render(uint8_t mode, int16_t note, bool gate);
+  void Render(uint8_t mode, int16_t note, bool gate, uint16_t gain);
   inline uint16_t ReadSample() {
     return audio_buffer_.ImmediateRead();
   }
@@ -96,14 +96,14 @@ class Oscillator {
   uint32_t ComputePhaseIncrement(int16_t pitch);
   
   void RenderSilence();
-  void RenderNoise();
-  void RenderSine(uint32_t phase_increment);
-  void RenderSaw(uint32_t phase_increment);
-  void RenderSquare(uint32_t phase_increment, uint32_t pw, bool integrate);
+  void RenderNoise(uint16_t gain);
+  void RenderSine(uint16_t gain, uint32_t phase_increment);
+  void RenderSaw(uint16_t gain, uint32_t phase_increment);
+  void RenderSquare(uint16_t gain, uint32_t phase_increment, uint32_t pw, bool integrate);
 
-  inline void WriteSample(int32_t sample) {
-    // TODO apply envelope value
-    audio_buffer_.Overwrite(offset_ - (scale_ * sample >> 16));
+  inline void WriteSample(uint16_t gain, int16_t sample) {
+    int32_t amplitude = (scale_ * gain) >> 16;
+    audio_buffer_.Overwrite(offset_ - ((amplitude * sample) >> 16));
   }
 
   inline int32_t ThisBlepSample(uint32_t t) {
@@ -224,7 +224,7 @@ class Voice {
   }
 
   inline void RenderAudio() {
-    oscillator_.Render(audio_mode_, note_, gate_);
+    oscillator_.Render(audio_mode_, note_, gate_, envelope_.value());
   }
   inline uint16_t ReadSample() {
     return oscillator_.ReadSample();

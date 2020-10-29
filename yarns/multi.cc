@@ -360,10 +360,10 @@ void Multi::AssignVoicesToCVOutputs() {
       break;
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
-      cv_outputs_[0].assign_voices(&voice_[0], kNumMaxVoicesPerPart);
-      cv_outputs_[1].assign_voices(&voice_[kNumMaxVoicesPerPart]);
-      cv_outputs_[2].assign_voices(&voice_[kNumMaxVoicesPerPart]);
-      cv_outputs_[3].assign_voices(&voice_[kNumMaxVoicesPerPart + 1]);
+      cv_outputs_[0].assign_voices(&voice_[0], kNumParaphonicVoices);
+      cv_outputs_[1].assign_voices(&voice_[kNumParaphonicVoices]);
+      cv_outputs_[2].assign_voices(&voice_[kNumParaphonicVoices]);
+      cv_outputs_[3].assign_voices(&voice_[kNumParaphonicVoices + 1]);
       break;
   }
 }
@@ -456,9 +456,9 @@ void Multi::GetCvGate(uint16_t* cv, bool* gate) {
       cv[2] = cv_outputs_[2].aux_cv_dac_code();
       cv[3] = cv_outputs_[3].note_dac_code();
       gate[0] = voice_[0].gate(); // TODO
-      gate[1] = voice_[kNumMaxVoicesPerPart].gate();
-      gate[2] = voice_[kNumMaxVoicesPerPart].trigger();
-      gate[3] = voice_[kNumMaxVoicesPerPart + 1].gate();
+      gate[1] = voice_[kNumParaphonicVoices].gate();
+      gate[2] = voice_[kNumParaphonicVoices].trigger();
+      gate[3] = voice_[kNumParaphonicVoices + 1].gate();
       break;
 
     case LAYOUT_QUAD_TRIGGERS:
@@ -598,9 +598,9 @@ void Multi::GetLedsBrightness(uint8_t* brightness) {
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
       brightness[0] = voice_[0].gate() ? (voice_[0].velocity() << 1) : 0; //TODO
-      brightness[1] = voice_[kNumMaxVoicesPerPart].gate() ? (voice_[kNumMaxVoicesPerPart].velocity() << 1) : 0;
-      brightness[2] = voice_[kNumMaxVoicesPerPart].aux_cv();
-      brightness[3] = voice_[kNumMaxVoicesPerPart + 1].gate() ? (voice_[kNumMaxVoicesPerPart + 1].velocity() << 1) : 0;
+      brightness[1] = voice_[kNumParaphonicVoices].gate() ? (voice_[kNumParaphonicVoices].velocity() << 1) : 0;
+      brightness[2] = voice_[kNumParaphonicVoices].aux_cv();
+      brightness[3] = voice_[kNumParaphonicVoices + 1].gate() ? (voice_[kNumParaphonicVoices + 1].velocity() << 1) : 0;
       break;
 
     case LAYOUT_QUAD_VOLTAGES:
@@ -675,9 +675,9 @@ void Multi::AllocateParts() {
     case LAYOUT_PARAPHONIC_PLUS_TWO:
       {
         CONSTRAIN(part_[0].mutable_voicing_settings()->audio_mode, 1, AUDIO_MODE_LAST - 1);
-        part_[0].AllocateVoices(&voice_[0], kNumMaxVoicesPerPart, false);
-        part_[1].AllocateVoices(&voice_[kNumMaxVoicesPerPart], 1, false);
-        part_[2].AllocateVoices(&voice_[kNumMaxVoicesPerPart + 1], 1, false);
+        part_[0].AllocateVoices(&voice_[0], kNumParaphonicVoices, false);
+        part_[1].AllocateVoices(&voice_[kNumParaphonicVoices], 1, false);
+        part_[2].AllocateVoices(&voice_[kNumParaphonicVoices + 1], 1, false);
         num_active_parts_ = 3;
       }
       break;
