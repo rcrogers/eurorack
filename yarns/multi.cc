@@ -457,11 +457,11 @@ void Multi::GetCvGate(uint16_t* cv, bool* gate) {
       break;
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
-      cv[0] = 0; // Paraphonic
+      cv[0] = 0; // CV not possible for paraphonic output
       cv[1] = cv_outputs_[1].note_dac_code();
       cv[2] = cv_outputs_[2].aux_cv_dac_code();
       cv[3] = cv_outputs_[3].note_dac_code();
-      gate[0] = voice_[0].gate(); // TODO
+      gate[0] = cv_outputs_[0].gate();
       gate[1] = voice_[kNumParaphonicVoices].gate();
       gate[2] = voice_[kNumParaphonicVoices].trigger();
       gate[3] = voice_[kNumParaphonicVoices + 1].gate();
@@ -603,7 +603,7 @@ void Multi::GetLedsBrightness(uint8_t* brightness) {
       break;
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
-      brightness[0] = voice_[0].gate() ? (voice_[0].velocity() << 1) : 0; //TODO
+      brightness[0] = cv_outputs_[0].gate() ? (cv_outputs_[0].main_voice()->velocity() << 1) : 0; //TODO use velocity of newest note?
       brightness[1] = voice_[kNumParaphonicVoices].gate() ? (voice_[kNumParaphonicVoices].velocity() << 1) : 0;
       brightness[2] = voice_[kNumParaphonicVoices].aux_cv();
       brightness[3] = voice_[kNumParaphonicVoices + 1].gate() ? (voice_[kNumParaphonicVoices + 1].velocity() << 1) : 0;

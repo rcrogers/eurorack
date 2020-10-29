@@ -303,6 +303,13 @@ class CVOutput {
     return assign_voices(list, 1);
   }
 
+  inline bool gate() const {
+    for (uint8_t i = 0; i < num_voices_; ++i) {
+      if (voices_[i]->gate()) { return true; }
+    }
+    return false;
+  }
+
   inline int32_t scale() const {
     return offset() - volts_dac_code(5);
   }
