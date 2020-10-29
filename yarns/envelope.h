@@ -27,9 +27,11 @@ namespace yarns {
 using namespace stmlib;
 
 enum EnvelopeSegment {
-  ENV_SEGMENT_ATTACK = 0,
-  ENV_SEGMENT_DECAY = 1,
-  ENV_SEGMENT_DEAD = 2,
+  ENV_SEGMENT_ATTACK,
+  ENV_SEGMENT_DECAY,
+  ENV_SEGMENT_SUSTAIN,
+  ENV_SEGMENT_RELEASE,
+  ENV_SEGMENT_DEAD,
   ENV_NUM_SEGMENTS,
 };
 
@@ -40,8 +42,10 @@ class Envelope {
 
   void Init() {
     target_[ENV_SEGMENT_ATTACK] = 65535;
-    target_[ENV_SEGMENT_DECAY] = 0;
+    target_[ENV_SEGMENT_RELEASE] = 0;
     target_[ENV_SEGMENT_DEAD] = 0;
+
+    increment_[ENV_SEGMENT_SUSTAIN] = 0;
     increment_[ENV_SEGMENT_DEAD] = 0;
   }
 
@@ -49,9 +53,12 @@ class Envelope {
     return static_cast<EnvelopeSegment>(segment_);
   }
 
-  inline void Update(uint8_t a, uint8_t d) {
+  // All params 7-bit
+  inline void SetADSR(uint8_t a, uint8_t d, uint8_t s, uint8_t r) {
     increment_[ENV_SEGMENT_ATTACK] = lut_portamento_increments[a];
     increment_[ENV_SEGMENT_DECAY] = lut_portamento_increments[d];
+    target_[ENV_SEGMENT_DECAY] = target_[ENV_SEGMENT_SUSTAIN] = s << 9;
+    increment_[ENV_SEGMENT_RELEASE] = lut_portamento_increments[r];
   }
   
   inline void Trigger(EnvelopeSegment segment) {

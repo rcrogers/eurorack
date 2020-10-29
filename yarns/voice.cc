@@ -60,7 +60,7 @@ void Voice::Init() {
   
   synced_lfo_.Init();
   envelope_.Init();
-  envelope_.Update(40, 105); // TODO
+  envelope_.SetADSR(40, 30, 80, 105); // TODO
   portamento_phase_ = 0;
   portamento_phase_increment_ = 1U << 31;
   portamento_exponential_shape_ = false;
@@ -238,6 +238,7 @@ void Voice::NoteOn(
 
 void Voice::NoteOff() {
   gate_ = false;
+  envelope_.Trigger(ENV_SEGMENT_RELEASE);
 }
 
 void Voice::ControlChange(uint8_t controller, uint8_t value) {
