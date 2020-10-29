@@ -60,7 +60,6 @@ void Voice::Init() {
   
   synced_lfo_.Init();
   envelope_.Init();
-  envelope_.SetADSR(40, 30, 80, 105); // TODO
   portamento_phase_ = 0;
   portamento_phase_increment_ = 1U << 31;
   portamento_exponential_shape_ = false;

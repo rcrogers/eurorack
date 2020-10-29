@@ -223,6 +223,10 @@ class Voice {
     return &oscillator_;
   }
 
+  inline Envelope* envelope() {
+    return &envelope_;
+  }
+
   inline void RenderAudio() {
     oscillator_.Render(audio_mode_, note_, gate_, envelope_.value());
   }

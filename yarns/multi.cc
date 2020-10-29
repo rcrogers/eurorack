@@ -99,6 +99,12 @@ void Multi::Init(bool reset_calibration) {
   voicing->trigger_duration = 2;
   voicing->aux_cv = MOD_AUX_MODULATION;
   voicing->aux_cv_2 = MOD_AUX_VIBRATO_LFO;
+  voicing->oscillator_pw_initial = 80;
+  voicing->oscillator_pw_mod = 10;
+  voicing->envelope_attack = 40;
+  voicing->envelope_decay = 30;
+  voicing->envelope_sustain = 80;
+  voicing->envelope_release = 105;
   voicing->tuning_transpose = 0;
   voicing->tuning_fine = 0;
   voicing->tuning_root = 0;

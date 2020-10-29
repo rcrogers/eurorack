@@ -172,7 +172,11 @@ struct VoicingSettings {
   uint8_t tuning_factor;
   uint8_t oscillator_pw_initial;
   int8_t oscillator_pw_mod;
-  uint8_t padding[10];
+  uint8_t envelope_attack;
+  uint8_t envelope_decay;
+  uint8_t envelope_sustain;
+  uint8_t envelope_release;
+  uint8_t padding[6];
 };
 
 
@@ -208,6 +212,10 @@ enum PartSetting {
   PART_VOICING_TUNING_FACTOR,
   PART_VOICING_OSCILLATOR_PW_INITIAL,
   PART_VOICING_OSCILLATOR_PW_MOD,
+  PART_VOICING_ENVELOPE_ATTACK,
+  PART_VOICING_ENVELOPE_DECAY,
+  PART_VOICING_ENVELOPE_SUSTAIN,
+  PART_VOICING_ENVELOPE_RELEASE,
   PART_VOICING_LAST = PART_VOICING_ALLOCATION_MODE + sizeof(VoicingSettings) - 1,
   PART_SEQUENCER_CLOCK_DIVISION,
   PART_SEQUENCER_GATE_LENGTH,

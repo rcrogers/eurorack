@@ -846,6 +846,12 @@ void Part::TouchVoices() {
     voice_[i]->set_tuning(voicing_.tuning_transpose, voicing_.tuning_fine);
     voice_[i]->set_oscillator_pw_initial(voicing_.oscillator_pw_initial);
     voice_[i]->set_oscillator_pw_mod(voicing_.oscillator_pw_mod);
+    voice_[i]->envelope()->SetADSR(
+        voicing_.envelope_attack,
+        voicing_.envelope_decay,
+        voicing_.envelope_sustain,
+        voicing_.envelope_release
+    );
   }
 }
 
@@ -888,6 +894,10 @@ void Part::Set(uint8_t address, uint8_t value) {
       case PART_VOICING_AUDIO_MODE:
       case PART_VOICING_OSCILLATOR_PW_INITIAL:
       case PART_VOICING_OSCILLATOR_PW_MOD:
+      case PART_VOICING_ENVELOPE_ATTACK:
+      case PART_VOICING_ENVELOPE_DECAY:
+      case PART_VOICING_ENVELOPE_SUSTAIN:
+      case PART_VOICING_ENVELOPE_RELEASE:
       case PART_VOICING_TUNING_TRANSPOSE:
       case PART_VOICING_TUNING_FINE:
         TouchVoices();
