@@ -59,7 +59,7 @@ void Multi::Init(bool reset_calibration) {
   }
   for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
     cv_outputs_[i].Init(reset_calibration);
-    cv_outputs_[i].assign_voices(&voice_[i]);
+    cv_outputs_[i].patch(&part_[i], &voice_[i]);
   }
   running_ = false;
   latched_ = false;
@@ -333,43 +333,62 @@ void Multi::AssignVoicesToCVOutputs() {
     case LAYOUT_MONO:
     case LAYOUT_DUAL_POLYCHAINED:
       for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
-        cv_outputs_[i].assign_voices(&voice_[0]);
+        cv_outputs_[i].patch(&part_[0], &voice_[0]);
       }
       break;
 
     case LAYOUT_DUAL_MONO:
     case LAYOUT_DUAL_POLY:
     case LAYOUT_QUAD_POLYCHAINED:
-      cv_outputs_[0].assign_voices(&voice_[0]);
-      cv_outputs_[1].assign_voices(&voice_[1]);
-      cv_outputs_[2].assign_voices(&voice_[0]);
-      cv_outputs_[3].assign_voices(&voice_[1]);
+      cv_outputs_[0].patch(&part_[0], &voice_[0]);
+      cv_outputs_[1].patch(&part_[0], &voice_[1]);
+      cv_outputs_[2].patch(&part_[1], &voice_[0]);
+      cv_outputs_[3].patch(&part_[1], &voice_[1]);
       break;
 
     case LAYOUT_QUAD_MONO:
-    case LAYOUT_QUAD_POLY:
-    case LAYOUT_OCTAL_POLYCHAINED:
-    case LAYOUT_THREE_ONE:
-    case LAYOUT_TWO_TWO:
     case LAYOUT_QUAD_TRIGGERS:
     case LAYOUT_QUAD_VOLTAGES:
-      for (uint8_t i = 0; i < kNumCVOutputs; ++i) {
-        cv_outputs_[i].assign_voices(&voice_[i]);
+      for (uint8_t i = 0; i < 4; ++i) {
+        cv_outputs_[i].patch(&part_[i], &voice_[i]);
       }
       break;
 
+    case LAYOUT_QUAD_POLY:
+    case LAYOUT_OCTAL_POLYCHAINED:
+      for (uint8_t i = 0; i < 4; ++i) {
+        cv_outputs_[i].patch(&part_[0], &voice_[i]);
+      }
+      break;
+
+    case LAYOUT_THREE_ONE:
+      for (uint8_t i = 0; i < 3; ++i) {
+        cv_outputs_[i].patch(&part_[0], &voice_[i]);
+      }
+      cv_outputs_[3].patch(&part_[1], &voice_[3]);
+      break;
+
+    case LAYOUT_TWO_TWO:
+      for (uint8_t i = 0; i < 2; ++i) {
+        cv_outputs_[i].patch(&part_[0], &voice_[i]);
+      }
+      cv_outputs_[2].patch(&part_[1], &voice_[2]);
+      cv_outputs_[3].patch(&part_[2], &voice_[3]);
+      break;
+
     case LAYOUT_TWO_ONE:
-      cv_outputs_[0].assign_voices(&voice_[0]);
-      cv_outputs_[1].assign_voices(&voice_[1]);
-      cv_outputs_[2].assign_voices(&voice_[2]);
-      cv_outputs_[3].assign_voices(&voice_[2]);
+      for (uint8_t i = 0; i < 2; ++i) {
+        cv_outputs_[i].patch(&part_[0], &voice_[i]);
+      }
+      cv_outputs_[2].patch(&part_[1], &voice_[2]);
+      cv_outputs_[3].patch(&part_[1], &voice_[2]);
       break;
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
-      cv_outputs_[0].assign_voices(&voice_[0], kNumParaphonicVoices);
-      cv_outputs_[1].assign_voices(&voice_[kNumParaphonicVoices]);
-      cv_outputs_[2].assign_voices(&voice_[kNumParaphonicVoices]);
-      cv_outputs_[3].assign_voices(&voice_[kNumParaphonicVoices + 1]);
+      cv_outputs_[0].patch(&part_[0], &voice_[0], kNumParaphonicVoices);
+      cv_outputs_[1].patch(&part_[1], &voice_[kNumParaphonicVoices]);
+      cv_outputs_[2].patch(&part_[1], &voice_[kNumParaphonicVoices]);
+      cv_outputs_[3].patch(&part_[2], &voice_[kNumParaphonicVoices + 1]);
       break;
   }
 }

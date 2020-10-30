@@ -292,15 +292,16 @@ class CVOutput {
 
   void Calibrate(uint16_t* calibrated_dac_code);
 
-  inline void assign_voices(Voice* list, uint8_t num) {
-    num_voices_ = num;
+  inline void patch(Part* part, Voice* list, uint8_t num_voices) {
+    part_ = part;
+    num_voices_ = num_voices;
     for (uint8_t i = 0; i < num_voices_; ++i) {
       voices_[i] = list + i;
       voices_[i]->oscillator()->Init(scale() / num_voices_, offset());
     }
   }
-  inline void assign_voices(Voice* list) {
-    return assign_voices(list, 1);
+  inline void patch(Part* part, Voice* list) {
+    return patch(part, list, 1);
   }
 
   inline bool gate() const {
@@ -386,6 +387,7 @@ class CVOutput {
  private:
   void NoteToDacCode();
 
+  Part* part_;
   Voice* voices_[kNumMaxVoicesPerPart];
   uint8_t num_voices_;
   uint16_t note_dac_code_;
