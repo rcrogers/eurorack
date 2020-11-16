@@ -622,7 +622,7 @@ void Ui::OnIncrementFactoryTesting(const Event& e) {
 void Ui::StartRecording() {
   previous_mode_ = mode_;
   multi.StartRecording(settings.Get(GLOBAL_ACTIVE_PART));
-  if (active_part().RecordsLoops()) {
+  if (active_part().sequencer_settings().clock_quantization == 0) {
     mode_ = UI_MODE_LOOPER_RECORDING;
     multi.Start(false);
   } else {
@@ -647,18 +647,14 @@ void Ui::OnSwitchPress(const Event& e) {
   switch (e.control_id) {
     case UI_SWITCH_REC:
       {
-        if (
-          mode_ == UI_MODE_RECORDING ||
-          mode_ == UI_MODE_OVERDUBBING ||
-          mode_ == UI_MODE_LOOPER_RECORDING
-        ) {
+        if (multi.recording()) {
           if (recording_mode_is_displaying_pitch_) {
             StopRecording();
           } else {
             // Toggle pitch display on
             recording_mode_is_displaying_pitch_ = true;
           }
-        } else {
+        } else if (active_part().midi_settings().play_mode != PLAY_MODE_MANUAL) {
           recording_mode_is_displaying_pitch_ = false;
           StartRecording();
         }

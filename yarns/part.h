@@ -393,30 +393,46 @@ class Part {
     return looper_note_index_for_generated_note_index_[generated_notes_.most_recent_note_index()];
   }
   inline void LooperPlayNoteOn(uint8_t looper_note_index, uint8_t pitch, uint8_t velocity) {
-    if (!RecordsLoops()) { return; }
-    looper_note_index_for_generated_note_index_[GeneratedNoteOn(pitch, velocity)] = looper_note_index;
+    uint8_t gen_note_index;
+    if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
+      // Advance arp
+      arp_ = BuildArpState(SequencerStep(pitch, velocity));
+      // TODO handle complex step types
+      // if (!arp_.step.has_note()) { return; }
+      gen_note_index = generated_notes_.NoteOn(arp_.step.note(), arp_.step.velocity());
+      // TODO should generated_notes_ hold the arp control instruction, or the resulting pitch?
+      // holding pitch makes it easier to target NoteOff -- otherwise need a reverse mapping from looper note to generated note
+      InternalNoteOn(arp_.step.note(), arp_.step.velocity());
+    } else {
+      gen_note_index = generated_notes_.NoteOn(pitch, velocity);
+      if (!pressed_keys_.Find(pitch)) {
+        InternalNoteOn(pitch, velocity);
+      }
+    }
+    looper_note_index_for_generated_note_index_[gen_note_index] = looper_note_index;
   }
+
   inline void LooperPlayNoteOff(uint8_t looper_note_index, uint8_t pitch) {
-    if (!RecordsLoops()) { return; }
-    looper_note_index_for_generated_note_index_[GeneratedNoteOff(pitch)] = looper::kNullIndex;
+    uint8_t gen_note_index;
+    if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
+      gen_note_index = generated_notes_.NoteOff(pitch);
+    } else {
+      gen_note_index = UnpressedNoteOff(pitch);
+    }
+    looper_note_index_for_generated_note_index_[gen_note_index] = looper::kNullIndex;
   }
+
   inline void LooperRecordNoteOn(uint8_t pressed_key_index, uint8_t pitch, uint8_t velocity) {
     uint8_t looper_note_index = seq_.looper_tape.RecordNoteOn(
       this, looper_pos_, pitch, velocity
     );
+    // TODO bypass some of this for arp
     looper_note_index_for_pressed_key_index_[pressed_key_index] = looper_note_index;
     LooperPlayNoteOn(looper_note_index, pitch, velocity);
     InternalNoteOn(pitch, velocity);
   }
 
-  inline uint8_t GeneratedNoteOn(uint8_t pitch, uint8_t velocity) {
-    uint8_t index = generated_notes_.NoteOn(pitch, velocity);
-    if (!pressed_keys_.Find(pitch)) {
-      InternalNoteOn(pitch, velocity);
-    }
-    return index;
-  }
-  inline uint8_t GeneratedNoteOff(uint8_t pitch) {
+  inline uint8_t UnpressedNoteOff(uint8_t pitch) {
     uint8_t index = generated_notes_.NoteOff(pitch);
     if (!pressed_keys_.Find(pitch)) {
       InternalNoteOff(pitch);
@@ -426,7 +442,7 @@ class Part {
 
   inline void AllGeneratedNotesOff() { // TODO should this replace StopSequencerArpeggiatorNotes?
     while (generated_notes_.size()) {
-      GeneratedNoteOff(generated_notes_.sorted_note(0).note);
+      UnpressedNoteOff(generated_notes_.sorted_note(0).note);
     }
   }
 
@@ -661,7 +677,11 @@ class Part {
   SyncedLFO bar_lfo_;
   uint16_t looper_pos_;
   bool looper_needs_advance_;
+
+  // Tracks which looper notes are currently being recorded
   uint8_t looper_note_index_for_pressed_key_index_[kNoteStackSize];
+
+  // Tracks which looper notes are currently playing, so they can be turned off later
   uint8_t looper_note_index_for_generated_note_index_[kNoteStackSize];
 
   uint16_t gate_length_counter_;

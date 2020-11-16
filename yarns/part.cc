@@ -156,7 +156,7 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
       SequencerDirectResponse()
     ) {
       InternalNoteOn(note, velocity);
-    } else if (seq_recording_ && RecordsLoops()) {
+    } else if (seq_recording_ && seq_.clock_quantization == 0) {
       LooperRecordNoteOn(pressed_key_index, note, velocity);
     }
   }
@@ -191,7 +191,7 @@ bool Part::NoteOff(uint8_t channel, uint8_t note) {
       )
     ) {
       InternalNoteOff(note);
-    } else if (seq_recording_ && RecordsLoops()) {
+    } else if (seq_recording_ && seq_.clock_quantization == 0) {
       uint8_t looper_note_index = looper_note_index_for_pressed_key_index_[pressed_key_index];
       looper_note_index_for_pressed_key_index_[pressed_key_index] = looper::kNullIndex;
       if (
@@ -361,7 +361,8 @@ void Part::Clock() {
   SequencerStep step;
 
   bool clock = !arp_seq_prescaler_;
-  bool play = RecordsSteps() || midi_.play_mode == PLAY_MODE_ARPEGGIATOR;
+  bool play = RecordsSteps() ||
+    (midi_.play_mode == PLAY_MODE_ARPEGGIATOR && seq_.clock_quantization == 1);
 
   if (clock && play) {
     step = BuildSeqStep();
@@ -466,9 +467,12 @@ void Part::LooperRewind() {
 }
 
 void Part::LooperAdvance() {
-  if (!looper_needs_advance_) {
-    return;
-  }
+  if (
+    !looper_needs_advance_ ||
+    seq_.clock_quantization == 1 ||
+    midi_.play_mode == PLAY_MODE_MANUAL
+  ) { return; }
+
   uint16_t new_pos = bar_lfo_.GetPhase() >> 16;
   seq_.looper_tape.Advance(this, looper_pos_, new_pos);
   looper_pos_ = new_pos;
