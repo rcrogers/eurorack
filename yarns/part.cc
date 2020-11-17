@@ -137,7 +137,12 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
   if (seq_recording_ && !sent_from_step_editor && seq_.clock_quantization == 1) {
     RecordStep(SequencerStep(note, velocity));
   } else {
-    if (release_latched_keys_on_next_note_on_) {
+    bool looper_record = seq_recording_ && seq_.clock_quantization == 0;
+
+    if (
+      release_latched_keys_on_next_note_on_ &&
+      !(looper_record && midi_.play_mode == PLAY_MODE_ARPEGGIATOR)
+    ) { //TODO shouldn't do this if recording for arp looper
       bool still_latched = ignore_note_off_messages_;
 
       // Releasing all latched key will generate "fake" NoteOff messages. We
@@ -149,14 +154,14 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
       ignore_note_off_messages_ = still_latched;
     }
     uint8_t pressed_key_index = pressed_keys_.NoteOn(note, velocity);
-  
+
     if (
       midi_.play_mode == PLAY_MODE_MANUAL ||
       sent_from_step_editor ||
       SequencerDirectResponse()
     ) {
       InternalNoteOn(note, velocity);
-    } else if (seq_recording_ && seq_.clock_quantization == 0) {
+    } else if (looper_record) {
       LooperRecordNoteOn(pressed_key_index, note, velocity);
     }
   }

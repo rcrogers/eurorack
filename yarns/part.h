@@ -392,20 +392,19 @@ class Part {
   inline uint8_t LooperCurrentNoteIndex() const {
     return looper_note_index_for_generated_note_index_[generated_notes_.most_recent_note_index()];
   }
-  inline void LooperPlayNoteOn(uint8_t looper_note_index, uint8_t pitch, uint8_t velocity) {
+
+  inline void LooperPlayNoteOn(uint8_t looper_note_index, uint8_t pitch, uint8_t velocity, bool recording = false) {
     uint8_t gen_note_index;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
       // Advance arp
       arp_ = BuildArpState(SequencerStep(pitch, velocity));
       // TODO handle complex step types
-      // if (!arp_.step.has_note()) { return; }
+      if (!arp_.step.has_note()) { return; }
       gen_note_index = generated_notes_.NoteOn(arp_.step.note(), arp_.step.velocity());
-      // TODO should generated_notes_ hold the arp control instruction, or the resulting pitch?
-      // holding pitch makes it easier to target NoteOff -- otherwise need a reverse mapping from looper note to generated note
       InternalNoteOn(arp_.step.note(), arp_.step.velocity());
     } else {
       gen_note_index = generated_notes_.NoteOn(pitch, velocity);
-      if (!pressed_keys_.Find(pitch)) {
+      if (recording || !pressed_keys_.Find(pitch)) {
         InternalNoteOn(pitch, velocity);
       }
     }
@@ -413,23 +412,35 @@ class Part {
   }
 
   inline void LooperPlayNoteOff(uint8_t looper_note_index, uint8_t pitch) {
-    uint8_t gen_note_index;
+    uint8_t gen_note_index = 0xff;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
-      gen_note_index = generated_notes_.NoteOff(pitch);
+      // Find the real pitch created by looper_note_index, since the `pitch` arg is an arp cmd
+      for (int i = 0; i < kNoteStackSize; ++i) {
+        if (looper_note_index_for_generated_note_index_[i] == looper_note_index) {
+          gen_note_index = i;
+          uint8_t arp_pitch = generated_notes_.note(i).note;
+          generated_notes_.NoteOff(arp_pitch);
+          InternalNoteOff(arp_pitch);
+          break;
+        }
+      }
     } else {
-      gen_note_index = UnpressedNoteOff(pitch);
+      gen_note_index = generated_notes_.NoteOff(pitch);
+      if (!pressed_keys_.Find(pitch)) {
+        InternalNoteOff(pitch);
+      }
     }
-    looper_note_index_for_generated_note_index_[gen_note_index] = looper::kNullIndex;
+    if (gen_note_index != 0xff) {
+      looper_note_index_for_generated_note_index_[gen_note_index] = looper::kNullIndex;
+    }
   }
 
   inline void LooperRecordNoteOn(uint8_t pressed_key_index, uint8_t pitch, uint8_t velocity) {
     uint8_t looper_note_index = seq_.looper_tape.RecordNoteOn(
       this, looper_pos_, pitch, velocity
     );
-    // TODO bypass some of this for arp
     looper_note_index_for_pressed_key_index_[pressed_key_index] = looper_note_index;
-    LooperPlayNoteOn(looper_note_index, pitch, velocity);
-    InternalNoteOn(pitch, velocity);
+    LooperPlayNoteOn(looper_note_index, pitch, velocity, true);
   }
 
   inline uint8_t UnpressedNoteOff(uint8_t pitch) {
@@ -454,12 +465,13 @@ class Part {
   }
   
   inline void DeleteRecording() {
-    if (RecordsLoops()) {
-      seq_.looper_tape.RemoveAll();
-    } else {
-      DeleteSequence();
-    }
     AllGeneratedNotesOff();
+    if (midi_.play_mode == PLAY_MODE_MANUAL) { return; }
+    if (seq_.clock_quantization) {
+      DeleteSequence();
+    } else {
+      seq_.looper_tape.RemoveAll();
+    }
   }
 
   inline void RecordStep(const SequencerStep& step) {
