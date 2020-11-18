@@ -50,6 +50,7 @@ using namespace std;
 
 void Part::Init() {
   pressed_keys_.Init();
+  arp_keys_.Init();
   mono_allocator_.Init();
   poly_allocator_.Init();
   generated_notes_.Init();
@@ -137,11 +138,11 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
   if (seq_recording_ && !sent_from_step_editor && seq_.clock_quantization == 1) {
     RecordStep(SequencerStep(note, velocity));
   } else {
-    bool looper_record = seq_recording_ && seq_.clock_quantization == 0;
+    bool looper_recording = seq_recording_ && seq_.clock_quantization == 0;
 
     if (
       release_latched_keys_on_next_note_on_ &&
-      !(looper_record && midi_.play_mode == PLAY_MODE_ARPEGGIATOR)
+      !(looper_recording && midi_.play_mode == PLAY_MODE_ARPEGGIATOR)
     ) {
       bool still_latched = ignore_note_off_messages_;
 
@@ -155,7 +156,7 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
     }
     uint8_t pressed_key_index = pressed_keys_.NoteOn(note, velocity);
 
-    if (looper_record) {
+    if (looper_recording) {
       LooperRecordNoteOn(pressed_key_index, note, velocity);
     } else {
       arp_keys_.NoteOn(note, velocity);
@@ -193,10 +194,10 @@ bool Part::NoteOff(uint8_t channel, uint8_t note) {
     if (seq_recording_ && seq_.clock_quantization == 0) {
       uint8_t looper_note_index = looper_note_index_for_pressed_key_index_[pressed_key_index];
       looper_note_index_for_pressed_key_index_[pressed_key_index] = looper::kNullIndex;
-      if (
-        looper_note_index != looper::kNullIndex &&
-        seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index)
-      ) {
+      if (looper_note_index == looper::kNullIndex) {
+        // If note wasn't being recorded to the looper
+        arp_keys_.NoteOff(note);
+      } else if (seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index)) {
         LooperPlayNoteOff(looper_note_index, note);
       }
     } else {
@@ -728,6 +729,7 @@ void Part::AllNotesOff() {
   poly_allocator_.ClearNotes();
   mono_allocator_.Clear();
   pressed_keys_.Clear();
+  arp_keys_.Clear();
   generated_notes_.Clear();
   looper_note_index_for_generated_note_index_[generated_notes_.most_recent_note_index()] = looper::kNullIndex;
   for (uint8_t i = 0; i < num_voices_; ++i) {
