@@ -142,7 +142,7 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
     if (
       release_latched_keys_on_next_note_on_ &&
       !(looper_record && midi_.play_mode == PLAY_MODE_ARPEGGIATOR)
-    ) { //TODO shouldn't do this if recording for arp looper
+    ) {
       bool still_latched = ignore_note_off_messages_;
 
       // Releasing all latched key will generate "fake" NoteOff messages. We
@@ -155,14 +155,17 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
     }
     uint8_t pressed_key_index = pressed_keys_.NoteOn(note, velocity);
 
-    if (
-      midi_.play_mode == PLAY_MODE_MANUAL ||
-      sent_from_step_editor ||
-      SequencerDirectResponse()
-    ) {
-      InternalNoteOn(note, velocity);
-    } else if (looper_record) {
+    if (looper_record) {
       LooperRecordNoteOn(pressed_key_index, note, velocity);
+    } else {
+      arp_keys_.NoteOn(note, velocity);
+      if (
+        midi_.play_mode == PLAY_MODE_MANUAL ||
+        sent_from_step_editor ||
+        SequencerDirectResponse()
+      ) {
+        InternalNoteOn(note, velocity);
+      }
     }
   }
   return midi_.out_mode == MIDI_OUT_MODE_THRU && !polychained_;
@@ -187,16 +190,7 @@ bool Part::NoteOff(uint8_t channel, uint8_t note) {
     }
     pressed_keys_.NoteOff(note);
 
-    if (
-      midi_.play_mode == PLAY_MODE_MANUAL ||
-      sent_from_step_editor ||
-      SequencerDirectResponse() || (
-        RecordsSteps() &&
-        !generated_notes_.Find(note)
-      )
-    ) {
-      InternalNoteOff(note);
-    } else if (seq_recording_ && seq_.clock_quantization == 0) {
+    if (seq_recording_ && seq_.clock_quantization == 0) {
       uint8_t looper_note_index = looper_note_index_for_pressed_key_index_[pressed_key_index];
       looper_note_index_for_pressed_key_index_[pressed_key_index] = looper::kNullIndex;
       if (
@@ -204,6 +198,18 @@ bool Part::NoteOff(uint8_t channel, uint8_t note) {
         seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index)
       ) {
         LooperPlayNoteOff(looper_note_index, note);
+      }
+    } else {
+      arp_keys_.NoteOff(note);
+      if (
+        midi_.play_mode == PLAY_MODE_MANUAL ||
+        sent_from_step_editor ||
+        SequencerDirectResponse() || (
+          RecordsSteps() &&
+          !generated_notes_.Find(note)
+        )
+      ) {
+        InternalNoteOff(note);
       }
     }
   }
@@ -404,13 +410,12 @@ void Part::Clock() {
     } else if (gate_length_counter_) {
       --gate_length_counter_;
     } else if (generated_notes_.size()) {
-      // Peek at next step
+      // Peek at next step to see if it's a continuation
       step = BuildSeqStep();
       if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
         step = BuildArpState(step).step;
       }
-
-      if (step.is_tie() || step.is_slid()) {
+      if (step.is_continuation()) {
         // The next step contains a "sustain" message; or a slid note. Extends
         // the duration of the current note.
         gate_length_counter_ += clock_division::num_ticks[seq_.clock_division];
@@ -467,6 +472,11 @@ void Part::LooperRewind() {
   std::fill(
     &looper_note_index_for_pressed_key_index_[0],
     &looper_note_index_for_pressed_key_index_[kNoteStackSize],
+    looper::kNullIndex
+  );
+  std::fill(
+    &looper_note_index_for_generated_note_index_[0],
+    &looper_note_index_for_generated_note_index_[kNoteStackSize],
     looper::kNullIndex
   );
 }
@@ -600,7 +610,7 @@ const ArpeggiatorState Part::BuildArpState(SequencerStep seq_step) const {
     next.step.data[0] = seq_step.data[0];
     return next;
   }
-  uint8_t num_keys = pressed_keys_.size();
+  uint8_t num_keys = arp_keys_.size();
   if (!num_keys) {
     next.ResetKey();
     return next;
@@ -684,7 +694,7 @@ const ArpeggiatorState Part::BuildArpState(SequencerStep seq_step) const {
   }
 
   // Build arpeggiator step
-  const NoteEntry* arpeggio_note = &pressed_keys_.played_note(next.key_index);
+  const NoteEntry* arpeggio_note = &arp_keys_.played_note(next.key_index);
   next.key_index += next.key_increment;
 
   // TODO step type algorithm

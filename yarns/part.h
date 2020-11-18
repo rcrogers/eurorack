@@ -257,6 +257,7 @@ struct SequencerStep {
   inline bool has_note() const { return !(data[0] & 0x80); }
   inline bool is_rest() const { return data[0] == SEQUENCER_STEP_REST; }
   inline bool is_tie() const { return data[0] == SEQUENCER_STEP_TIE; }
+  inline bool is_continuation() const { return is_tie() || is_slid(); }
   inline uint8_t note() const { return data[0] & 0x7f; }
 
   inline bool is_slid() const { return data[1] & 0x80; }
@@ -396,12 +397,26 @@ class Part {
   inline void LooperPlayNoteOn(uint8_t looper_note_index, uint8_t pitch, uint8_t velocity, bool recording = false) {
     uint8_t gen_note_index;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
+      uint8_t most_recent_generated_note_index = generated_notes_.most_recent_note_index();
       // Advance arp
       arp_ = BuildArpState(SequencerStep(pitch, velocity));
-      // TODO handle complex step types
-      if (!arp_.step.has_note()) { return; }
+      // TODO does it make sense that rest generates a new note and tie doesn't?
+      // if tie generates a new note, still need to know what prev pitch it tied for NoteOff purposes
+      // or generated notes could have both the prev pitch and a SEQUENCER_STEP_TIE ... ?
       gen_note_index = generated_notes_.NoteOn(arp_.step.note(), arp_.step.velocity());
-      InternalNoteOn(arp_.step.note(), arp_.step.velocity());
+      if (arp_.step.has_note()) {
+        if (arp_.step.is_slid()) {
+          InternalNoteOff(generated_notes_.note(most_recent_generated_note_index).note);
+        }
+        InternalNoteOn(arp_.step.note(), arp_.step.velocity());
+      } else if (arp_.step.is_tie()) {
+        // In addition to controlling the generated tie, this looper note
+        // 'adopts' generated_notes_.most_recent_note
+        // TODO this could itself be a tie
+        // safe to just iterate through generated_notes_ by recency until we find one that isn't a tie?
+        looper_note_index_for_generated_note_index_[most_recent_generated_note_index] = looper_note_index;
+        return;
+      }
     } else {
       gen_note_index = generated_notes_.NoteOn(pitch, velocity);
       if (recording || !pressed_keys_.Find(pitch)) {
@@ -414,14 +429,23 @@ class Part {
   inline void LooperPlayNoteOff(uint8_t looper_note_index, uint8_t pitch) {
     uint8_t gen_note_index = 0xff;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
-      // Find the real pitch created by looper_note_index, since the `pitch` arg is an arp cmd
-      for (int i = 0; i < kNoteStackSize; ++i) {
-        if (looper_note_index_for_generated_note_index_[i] == looper_note_index) {
-          gen_note_index = i;
-          uint8_t arp_pitch = generated_notes_.note(i).note;
-          generated_notes_.NoteOff(arp_pitch);
-          InternalNoteOff(arp_pitch);
-          break;
+      // Peek at next step to see if it's a continuation
+      const looper::Note looper_next_on = seq_.looper_tape.NoteAt(seq_.looper_tape.PeekNextOn());
+      SequencerStep next_step = SequencerStep(looper_next_on.pitch, looper_next_on.velocity);
+      next_step = BuildArpState(next_step).step;
+      if (!next_step.is_continuation()) {
+        // Find the generated pitch (and possibly tie) controlled by
+        // looper_note_index, since the `pitch` arg is an arp cmd
+        for (int i = 0; i < kNoteStackSize; ++i) {
+          if (looper_note_index_for_generated_note_index_[i] == looper_note_index) {
+            gen_note_index = i;
+            uint8_t arp_pitch = generated_notes_.note(i).note;
+            generated_notes_.NoteOff(arp_pitch);
+            if (arp_pitch <= 0x7f) {
+              // This is the real pitch
+              InternalNoteOff(arp_pitch);
+            } // Else it's a SEQUENCER_STEP_TIE
+          }
         }
       }
     } else {
@@ -671,6 +695,7 @@ class Part {
   bool release_latched_keys_on_next_note_on_;
   
   stmlib::NoteStack<kNoteStackSize> pressed_keys_;
+  stmlib::NoteStack<kNoteStackSize> arp_keys_;
   stmlib::NoteStack<kNoteStackSize> generated_notes_;  // by sequencer or arpeggiator.
   stmlib::NoteStack<kNoteStackSize> mono_allocator_;
   stmlib::VoiceAllocator<kNumMaxVoicesPerPart * 2> poly_allocator_;

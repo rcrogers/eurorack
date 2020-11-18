@@ -83,6 +83,10 @@ class Tape {
   uint8_t NotePitch(uint8_t index) const;
   uint8_t NoteAgeOrdinal(uint8_t index) const;
 
+  const Note& NoteAt(uint8_t index) const {
+    return notes_[index];
+  }
+
  private:
 
   bool Passed(uint16_t target, uint16_t before, uint16_t after) const;
