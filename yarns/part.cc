@@ -198,7 +198,7 @@ bool Part::NoteOff(uint8_t channel, uint8_t note) {
         // If note wasn't being recorded to the looper
         arp_keys_.NoteOff(note);
       } else if (seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index)) {
-        LooperPlayNoteOff(looper_note_index, note);
+        LooperPlayNoteOff(looper_note_index, ArpUndoTransposeInputPitch(note));
       }
     } else {
       arp_keys_.NoteOff(note);
