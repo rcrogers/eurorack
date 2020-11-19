@@ -395,11 +395,10 @@ class Part {
   }
 
   inline void LooperPlayNoteOn(uint8_t looper_note_index, uint8_t pitch, uint8_t velocity, bool recording = false) {
+    looper_note_index_for_generated_note_index_[generated_notes_.NoteOn(pitch, velocity)] = looper_note_index;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
       // Advance arp
       arp_ = BuildArpState(SequencerStep(pitch, velocity));
-      pitch = arp_.step.note();
-      velocity = arp_.step.velocity();
       if (arp_.step.has_note()) {
         InternalNoteOn(arp_.step.note(), arp_.step.velocity());
         if (arp_.step.is_slid()) {
@@ -412,50 +411,35 @@ class Part {
         InternalNoteOn(pitch, velocity);
       }
     }
-    looper_note_index_for_generated_note_index_[generated_notes_.NoteOn(pitch, velocity)] = looper_note_index;
   }
 
   inline void LooperPlayNoteOff(uint8_t looper_note_index, uint8_t pitch) {
+    looper_note_index_for_generated_note_index_[generated_notes_.NoteOff(pitch)] = looper::kNullIndex;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
-      pitch = arp_pitch_for_looper_note_[looper_note_index];
+      uint8_t arp_pitch = arp_pitch_for_looper_note_[looper_note_index];
       // Peek at next looper note
       uint8_t next_on_index = seq_.looper_tape.PeekNextOn();
-      const looper::Note next_on_note = seq_.looper_tape.NoteAt(next_on_index);
+      const looper::Note& next_on_note = seq_.looper_tape.NoteAt(next_on_index);
       SequencerStep next_step = SequencerStep(next_on_note.pitch, next_on_note.velocity);
       next_step = BuildArpState(next_step).step;
       if (next_step.is_continuation()) {
-        // Assign this pitch to the next looper note
-        // TODO what if arp keys change between now and then?
-        arp_pitch_for_looper_note_[next_on_index] = pitch;
+        // Leave this pitch in the care of the next looper note
+        arp_pitch_for_looper_note_[next_on_index] = arp_pitch;
       } else {
-        InternalNoteOff(pitch);
+        InternalNoteOff(arp_pitch);
       }
     } else if (!pressed_keys_.Find(pitch)) {
       InternalNoteOff(pitch);
     }
-    looper_note_index_for_generated_note_index_[generated_notes_.NoteOff(pitch)] = looper::kNullIndex;
   }
 
   inline void LooperRecordNoteOn(uint8_t pressed_key_index, uint8_t pitch, uint8_t velocity) {
+    pitch = ArpUndoTransposeInputPitch(pitch);
     uint8_t looper_note_index = seq_.looper_tape.RecordNoteOn(
       this, looper_pos_, pitch, velocity
     );
     looper_note_index_for_pressed_key_index_[pressed_key_index] = looper_note_index;
     LooperPlayNoteOn(looper_note_index, pitch, velocity, true);
-  }
-
-  inline uint8_t UnpressedNoteOff(uint8_t pitch) {
-    uint8_t index = generated_notes_.NoteOff(pitch);
-    if (!pressed_keys_.Find(pitch)) {
-      InternalNoteOff(pitch);
-    }
-    return index;
-  }
-
-  inline void AllGeneratedNotesOff() { // TODO should this replace StopSequencerArpeggiatorNotes?
-    while (generated_notes_.size()) {
-      UnpressedNoteOff(generated_notes_.sorted_note(0).note);
-    }
   }
 
   inline bool RecordsLoops() const {
@@ -466,8 +450,8 @@ class Part {
   }
   
   inline void DeleteRecording() {
-    AllGeneratedNotesOff();
     if (midi_.play_mode == PLAY_MODE_MANUAL) { return; }
+    StopSequencerArpeggiatorNotes();
     if (seq_.clock_quantization) {
       DeleteSequence();
     } else {
@@ -475,14 +459,18 @@ class Part {
     }
   }
 
+  inline uint8_t ArpUndoTransposeInputPitch(uint8_t pitch) {
+    if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR && pitch < SEQUENCER_STEP_REST) {
+      // This is an arpeggiation control step, so undo input transpose
+      pitch = TransposeInputPitch(pitch, -midi_.transpose_octaves);
+    }
+    return pitch;
+  }
+
   inline void RecordStep(const SequencerStep& step) {
     if (seq_recording_) {
       SequencerStep* target = &seq_.step[seq_rec_step_];
-      target->data[0] = step.data[0];
-      if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR && step.has_note()) {
-        // This is an arpeggiation control step, so undo input transpose
-        target->data[0] = TransposeInputPitch(target->data[0], -midi_.transpose_octaves);
-      }
+      target->data[0] = ArpUndoTransposeInputPitch(step.data[0]);
       target->data[1] |= step.data[1];
       ++seq_rec_step_;
       uint8_t last_step = seq_overdubbing_ ? seq_.num_steps : kNumSteps;

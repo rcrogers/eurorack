@@ -531,9 +531,20 @@ void Part::DeleteSequence() {
 
 void Part::StopSequencerArpeggiatorNotes() {
   while (generated_notes_.size()) {
-    uint8_t note = generated_notes_.sorted_note(0).note;
-    generated_notes_.NoteOff(note);
-    InternalNoteOff(note);
+    uint8_t generated_note_index = generated_notes_.most_recent_note_index();
+    uint8_t pitch = generated_notes_.note(generated_note_index).note;
+    uint8_t looper_note_index = looper_note_index_for_generated_note_index_[generated_note_index];
+
+    looper_note_index_for_generated_note_index_[generated_note_index] = looper::kNullIndex;
+    generated_notes_.NoteOff(pitch);
+    if (seq_.clock_quantization == 0) {
+      if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
+        pitch = arp_pitch_for_looper_note_[looper_note_index];
+      } else if (pressed_keys_.Find(pitch)) {
+        continue;
+      }
+    }
+    InternalNoteOff(pitch);
   }
 }
 

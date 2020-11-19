@@ -245,7 +245,7 @@ void Tape::RemoveNote(Part* part, uint16_t current_pos, uint8_t target_index) {
   uint8_t search_prev_index;
   uint8_t search_next_index;
 
-  if (NoteIsPlaying(target_index, current_pos)) { // TODO arp?
+  if (NoteIsPlaying(target_index, current_pos)) {
     part->LooperPlayNoteOff(target_index, target_note.pitch);
   }
 
