@@ -154,7 +154,12 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
       release_latched_keys_on_next_note_on_ = still_latched;
       ignore_note_off_messages_ = still_latched;
     }
-    uint8_t pressed_key_index = pressed_keys_.NoteOn(note, velocity);
+
+    // If the key is already pressed, don't overwrite it and its possible flag
+    uint8_t pressed_key_index = pressed_keys_.Find(note);
+    if (!pressed_key_index) {
+      pressed_key_index = pressed_keys_.NoteOn(note, velocity);
+    }
 
     if (looper_recording) {
       LooperRecordNoteOn(pressed_key_index, note, velocity);
@@ -187,6 +192,8 @@ bool Part::NoteOff(uint8_t channel, uint8_t note) {
     uint8_t pressed_key_index = pressed_keys_.Find(note);
     if (pressed_keys_.note(pressed_key_index).velocity & 0x80) {
       // If the note is flagged, it can only be released by ReleaseLatchedNotes
+      // TODO if we start letting the arp key keep its flag, releasing the looper key will get us here
+      // instead of returning, disallow all actions except RecordNoteOff? seems bad
       return false;
     }
     pressed_keys_.NoteOff(note);
