@@ -146,11 +146,7 @@ class Ui {
  private:
   void RefreshDisplay();
   void TapTempo();
-  inline void SetTempo(uint8_t value) {
-    multi.Set(MULTI_CLOCK_TEMPO, value);
-    splash_mode_ = UI_MODE_TEMPO_CHANGE;
-    show_splash_ = true;
-  }
+  void SetTempo(uint8_t value);
   inline Part* mutable_recording_part() {
     return mutable_active_part();
   }
@@ -209,7 +205,6 @@ class Ui {
   void PrintRecordingStep();
   void PrintArpeggiatorMovementStep(SequencerStep step);
   void PrintActivePartAndPlayMode();
-  void PrintTempo();
   
   void ChangedActivePartOrPlayMode();
   void StartRecording();

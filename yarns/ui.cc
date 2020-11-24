@@ -146,7 +146,7 @@ Ui::Mode Ui::modes_[] = {
 
   // UI_MODE_TEMPO_RESULT
   { &Ui::OnIncrementParameterSelect, &Ui::OnClick,
-    &Ui::PrintTempo,
+    &Ui::PrintParameterName,
     UI_MODE_PARAMETER_SELECT,
     NULL, 0, 0 },
 
@@ -169,6 +169,7 @@ void Ui::Init() {
   mode_ = UI_MODE_PARAMETER_SELECT;
   splash_mode_ = UI_MODE_SPLASH;
   show_splash_ = true;
+  PrintVersionNumber();
   current_menu_category_ = &Settings::live_menus;
   previous_tap_time_ = 0;
   tap_tempo_count_ = 0;
@@ -326,12 +327,6 @@ void Ui::PrintActivePartAndPlayMode() {
   display_.Print(buffer_);
 }
 
-void Ui::PrintTempo() {
-  settings.PrintTempo(buffer_);
-  display_.Print(buffer_);
-  display_.Scroll();
-}
-
 void Ui::PrintRecordingStep() {
   SequencerStep step = recording_part().sequencer_settings().step[recording_part().recording_step()];
   if (step.is_rest()) {
@@ -474,6 +469,7 @@ void Ui::PrintVersionNumber() {
 void Ui::ChangedActivePartOrPlayMode() {
   splash_mode_ = UI_MODE_CHANGED_ACTIVE_PART_OR_PLAY_MODE;
   show_splash_ = true;
+  PrintActivePartAndPlayMode();
 }
 
 // Generic Handlers
@@ -785,14 +781,12 @@ void Ui::TapTempo() {
   uint32_t tap_time = system_clock.milliseconds();
   uint32_t delta = tap_time - previous_tap_time_;
   if (delta < kTapDeltaMax) {
-    tap_tempo_resolved_ = true;
     if (delta < 250) {
       delta = 250;
     }
     ++tap_tempo_count_;
     tap_tempo_sum_ += delta;
     SetTempo(tap_tempo_count_ * 60000 / tap_tempo_sum_);
-    tap_tempo_resolved_ = true;
   } else {
     // Treat this as a first tap
     tap_tempo_resolved_ = false;
@@ -802,6 +796,22 @@ void Ui::TapTempo() {
   previous_tap_time_ = tap_time;
 }
 
+void Ui::SetTempo(uint8_t value) {
+  multi.Set(MULTI_CLOCK_TEMPO, value);
+  if (value == TEMPO_EXTERNAL) {
+    display_.Print("EXTERNAL");
+  } else {
+    settings.PrintInteger(buffer_, value);
+    display_.Print(buffer_);
+  }
+  display_.Scroll();
+
+  splash_mode_ = UI_MODE_TEMPO_CHANGE;
+  show_splash_ = true;
+  tap_tempo_resolved_ = true;
+  queue_.Touch();
+}
+
 void Ui::DoEvents() {
   bool refresh_display = false;
   bool scroll_display = false;
@@ -809,6 +819,7 @@ void Ui::DoEvents() {
   while (queue_.available()) {
     Event e = queue_.PullEvent();
     const Mode& mode = modes_[mode_];
+    show_splash_ = false;
     if (e.control_type == CONTROL_ENCODER_CLICK) {
       (this->*mode.on_click)(e);
       if (mode_ == UI_MODE_PARAMETER_EDIT) {
@@ -824,29 +835,52 @@ void Ui::DoEvents() {
     } else if (e.control_type == CONTROL_SWITCH_HOLD) {
       OnSwitchHeld(e);
     }
-    refresh_display = true;
+    refresh_display = true; // TODO this fucks the TapTempo splash
   }
 
   if (!tap_tempo_resolved_) {
     uint32_t delta = system_clock.milliseconds() - previous_tap_time_;
     if (delta > (2 * kTapDeltaMax)) {
-      // If we never got a second tap, go to external
-      tap_tempo_resolved_ = true;
+      // If we never got a second tap ... 
       SetTempo(TEMPO_EXTERNAL);
-      queue_.Touch();
     }
   }
 
+  if (multi.recording()) {
+    refresh_display = true;
+  }
+
+  if (mode_ == UI_MODE_LEARNING && !multi.learning()) {
+    OnClickLearning(Event());
+  }
+
   if (show_splash_) {
-    uint32_t splash_time = splash_mode_ == UI_MODE_CHANGED_ACTIVE_PART_OR_PLAY_MODE ? 300 : 1000;
-    if (queue_.idle_time() > splash_time) {
-      refresh_display = true;
-      show_splash_ = false;
-      if (mode_ == UI_MODE_PARAMETER_EDIT) {
-        scroll_display = true;
-      }
+    switch (splash_mode_) {
+      case UI_MODE_SPLASH:
+        show_splash_ = queue_.idle_time() < 1000;
+        break;
+
+      case UI_MODE_CHANGED_ACTIVE_PART_OR_PLAY_MODE:
+        if (multi.running()) { SetBrightnessFromBarPhase(); }
+        show_splash_ = queue_.idle_time() < 500;
+        break;
+
+      case UI_MODE_TEMPO_CHANGE:
+        show_splash_ = queue_.idle_time() < 500 || display_.scrolling();
+        break;
+
+      default:
+        show_splash_ = false;
+        break;
+    }
+    if (show_splash_) { return; }
+    // Exit splash
+    refresh_display = true;
+    if (mode_ == UI_MODE_PARAMETER_EDIT) {
+      scroll_display = true;
     }
   }
+
   if (queue_.idle_time() > 900) {
     if (!display_.scrolling()) {
       factory_testing_display_ = UI_FACTORY_TESTING_DISPLAY_EMPTY;
@@ -867,17 +901,7 @@ void Ui::DoEvents() {
     }
   }
 
-  if (multi.recording()) {
-    refresh_display = true;
-  }
-
-  if (mode_ == UI_MODE_LEARNING && !multi.learning()) {
-    OnClickLearning(Event());
-  }
-
-  if (show_splash_) {
-    (this->*modes_[splash_mode_].refresh_display)();
-  } else if (refresh_display) {
+  if (refresh_display) {
     queue_.Touch();
     (this->*modes_[mode_].refresh_display)();
     if (multi.recording()) {

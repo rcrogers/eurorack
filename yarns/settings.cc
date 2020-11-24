@@ -929,7 +929,11 @@ void Settings::Print(const Setting& setting, char* buffer) const {
       break;
 
     case SETTING_UNIT_TEMPO:
-      PrintTempo(buffer);
+      if (value == TEMPO_EXTERNAL) {
+        strcpy(buffer, "EXTERNAL");
+      } else {
+        PrintInteger(buffer, value);
+      }
       break;
 
     case SETTING_UNIT_MIDI_CHANNEL:
@@ -999,15 +1003,6 @@ void Settings::Increment(const Setting& setting, int16_t increment) {
   }
   CONSTRAIN(value, min_value, max_value);
   Set(setting, static_cast<uint8_t>(value));
-}
-
-void Settings::PrintTempo(char* buffer) const {
-  uint8_t value = Get(settings_[SETTING_CLOCK_TEMPO]);
-  if (value == TEMPO_EXTERNAL) {
-    strcpy(buffer, "EXTERNAL");
-  } else {
-    PrintInteger(buffer, value);
-  }
 }
 
 /* static */
