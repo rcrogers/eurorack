@@ -720,9 +720,9 @@ void Ui::OnSwitchHeld(const Event& e) {
         mutable_active_part()->DeleteRecording();
       } else {
         if (active_part().IsLatched()) {
-          mutable_active_part()->UnlatchOnNextNoteOn();
+          mutable_active_part()->SustainOff();
         } else if (multi.running() && active_part().has_notes()) {
-          mutable_active_part()->Latch();
+          mutable_active_part()->SustainOn();
         } else {
           if (push_it_) {
             multi.PushItNoteOff(push_it_note_);

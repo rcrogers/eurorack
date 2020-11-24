@@ -314,6 +314,31 @@ struct ArpeggiatorState {
   }
 };
 
+struct PressedKeys {
+
+  stmlib::NoteStack<kNoteStackSize> stack;
+  bool ignore_note_off_messages;
+  bool release_latched_keys_on_next_note_on;
+
+  void Init() {
+    stack.Init();
+    ResetLatch();
+  }
+  void ResetLatch() {
+    ignore_note_off_messages = false;
+    release_latched_keys_on_next_note_on = false;
+  }
+  void Latch() {
+    ignore_note_off_messages = true;
+    release_latched_keys_on_next_note_on = true;
+  }
+  void UnlatchOnNextNoteOn() {
+    ignore_note_off_messages = false;
+    release_latched_keys_on_next_note_on = true;
+  }
+
+};
+
 class Part {
  public:
   Part() { }
@@ -330,6 +355,8 @@ class Part {
   // Also, note that channel / keyrange / velocity range filtering is not
   // applied here. It is up to the caller to call accepts() first to check
   // whether the message should be sent to the part.
+  void PressedKeysNoteOn(PressedKeys &keys, uint8_t pitch, uint8_t velocity);
+  void PressedKeysNoteOff(PressedKeys &keys, uint8_t pitch);
   bool NoteOn(uint8_t channel, uint8_t note, uint8_t velocity);
   bool NoteOff(uint8_t channel, uint8_t note);
   uint8_t TransposeInputPitch(uint8_t pitch, int8_t transpose_octaves) {
@@ -407,7 +434,7 @@ class Part {
         arp_pitch_for_looper_note_[looper_note_index] = arp_.step.note();
       } //  else if tie, arp_pitch_for_looper_note_ is already set to the tied pitch
     } else {
-      if (recording || !pressed_keys_.Find(pitch)) {
+      if (recording || !manual_keys_.stack.Find(pitch)) {
         InternalNoteOn(pitch, velocity);
       }
     }
@@ -428,17 +455,17 @@ class Part {
       } else {
         InternalNoteOff(arp_pitch);
       }
-    } else if (!pressed_keys_.Find(pitch)) {
+    } else if (!manual_keys_.stack.Find(pitch)) {
       InternalNoteOff(pitch);
     }
   }
 
-  inline void LooperRecordNoteOn(uint8_t pressed_key_index, uint8_t pitch, uint8_t velocity) {
+  inline void LooperRecordNoteOn(uint8_t pitch, uint8_t velocity) {
     pitch = ArpUndoTransposeInputPitch(pitch);
     uint8_t looper_note_index = seq_.looper_tape.RecordNoteOn(
       this, looper_pos_, pitch, velocity
     );
-    looper_note_index_for_pressed_key_index_[pressed_key_index] = looper_note_index;
+    looper_note_index_for_pitch_[pitch] = looper_note_index;
     LooperPlayNoteOn(looper_note_index, pitch, velocity, true);
   }
 
@@ -458,6 +485,17 @@ class Part {
       seq_.looper_tape.RemoveAll();
     }
   }
+
+  inline void SustainOn() {
+    PressedKeysSustainOn(manual_keys_);
+    PressedKeysSustainOn(arpeg_keys_);
+  }
+  inline void SustainOff() {
+    PressedKeysSustainOff(manual_keys_);
+    PressedKeysSustainOff(arpeg_keys_);
+  }
+  void PressedKeysSustainOn(PressedKeys &keys);
+  void PressedKeysSustainOff(PressedKeys &keys);
 
   inline uint8_t ArpUndoTransposeInputPitch(uint8_t pitch) {
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR && pitch < SEQUENCER_STEP_REST) {
@@ -582,7 +620,7 @@ class Part {
   inline VoicingSettings* mutable_voicing_settings() { return &voicing_; }
   inline SequencerSettings* mutable_sequencer_settings() { return &seq_; }
 
-  inline bool has_notes() const { return pressed_keys_.size() != 0; }
+  inline bool has_notes() const { return manual_keys_.stack.size(); }
   
   inline bool recording() const { return seq_recording_; }
   inline bool overdubbing() const { return seq_overdubbing_; }
@@ -603,22 +641,9 @@ class Part {
     TouchVoices();
     TouchVoiceAllocation();
   }
-  
-  inline void Latch() {
-    ignore_note_off_messages_ = true;
-    release_latched_keys_on_next_note_on_ = true;
-  }
-  inline void UnlatchImmediate() {
-    ignore_note_off_messages_ = false;
-    release_latched_keys_on_next_note_on_ = false;
-    ReleaseLatchedNotes();
-  }
-  inline void UnlatchOnNextNoteOn() {
-    ignore_note_off_messages_ = false;
-    release_latched_keys_on_next_note_on_ = true;
-  }
+
   inline bool IsLatched() const {
-    return ignore_note_off_messages_;
+    return manual_keys_.ignore_note_off_messages;
   }
   
   inline void SetMultiIsRecording(bool b) {
@@ -639,7 +664,7 @@ class Part {
   void TouchVoiceAllocation();
   void TouchVoices();
   
-  void ReleaseLatchedNotes();
+  void ReleaseLatchedNotes(PressedKeys &keys);
   void DispatchSortedNotes(bool unison);
   void KillAllInstancesOfNote(uint8_t note);
 
@@ -655,12 +680,9 @@ class Part {
   int8_t* custom_pitch_table_;
   uint8_t num_voices_;
   bool polychained_;
-  
-  bool ignore_note_off_messages_;
-  bool release_latched_keys_on_next_note_on_;
-  
-  stmlib::NoteStack<kNoteStackSize> pressed_keys_;
-  stmlib::NoteStack<kNoteStackSize> arp_keys_;
+
+  PressedKeys manual_keys_;
+  PressedKeys arpeg_keys_;
   stmlib::NoteStack<kNoteStackSize> generated_notes_;  // by sequencer or arpeggiator.
   stmlib::NoteStack<kNoteStackSize> mono_allocator_;
   stmlib::VoiceAllocator<kNumMaxVoicesPerPart * 2> poly_allocator_;
@@ -681,7 +703,7 @@ class Part {
   bool looper_needs_advance_;
 
   // Tracks which looper notes are currently being recorded
-  uint8_t looper_note_index_for_pressed_key_index_[kNoteStackSize];
+  uint8_t looper_note_index_for_pitch_[kNoteStackSize];
 
   // Tracks which looper notes are currently playing, so they can be turned off later
   uint8_t looper_note_index_for_generated_note_index_[kNoteStackSize];
