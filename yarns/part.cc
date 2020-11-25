@@ -447,8 +447,8 @@ void Part::LooperRewind() {
   looper_needs_advance_ = false;
   seq_.looper_tape.ResetHead();
   std::fill(
-    &looper_note_index_for_pressed_key_index_[0],
-    &looper_note_index_for_pressed_key_index_[kNoteStackSize],
+    &looper_note_recording_pressed_key_[0],
+    &looper_note_recording_pressed_key_[kNoteStackSize],
     looper::kNullIndex
   );
   std::fill(

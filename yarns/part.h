@@ -452,7 +452,12 @@ class Part {
     return looper_note_index_for_generated_note_index_[generated_notes_.most_recent_note_index()];
   }
 
-  inline void LooperPlayNoteOn(uint8_t looper_note_index, uint8_t pitch, uint8_t velocity, bool recording = false) {
+  inline bool LooperCanControl(uint8_t pitch) {
+    uint8_t pressed_key = manual_keys_.stack.Find(pitch);
+    return !pressed_key || looper_note_recording_pressed_key_[pressed_key] != looper::kNullIndex;
+  }
+
+  inline void LooperPlayNoteOn(uint8_t looper_note_index, uint8_t pitch, uint8_t velocity) {
     looper_note_index_for_generated_note_index_[generated_notes_.NoteOn(pitch, velocity)] = looper_note_index;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
       // Advance arp
@@ -464,12 +469,12 @@ class Part {
         }
         arp_pitch_for_looper_note_[looper_note_index] = arp_.step.note();
       } //  else if tie, arp_pitch_for_looper_note_ is already set to the tied pitch
-    } else if (recording || !manual_keys_.stack.Find(pitch)) {
+    } else if (LooperCanControl(pitch)) {
       InternalNoteOn(pitch, velocity);
     }
   }
 
-  inline void LooperPlayNoteOff(uint8_t looper_note_index, uint8_t pitch, bool recording = false) {
+  inline void LooperPlayNoteOff(uint8_t looper_note_index, uint8_t pitch) {
     looper_note_index_for_generated_note_index_[generated_notes_.NoteOff(pitch)] = looper::kNullIndex;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
       uint8_t arp_pitch = arp_pitch_for_looper_note_[looper_note_index];
@@ -484,7 +489,7 @@ class Part {
       } else {
         InternalNoteOff(arp_pitch);
       }
-    } else if (recording || !manual_keys_.stack.Find(pitch)) {
+    } else if (LooperCanControl(pitch)) {
       InternalNoteOff(pitch);
     }
   }
@@ -494,18 +499,18 @@ class Part {
     uint8_t looper_note_index = seq_.looper_tape.RecordNoteOn(
       this, looper_pos_, e.note, e.velocity & 0x7f
     );
-    looper_note_index_for_pressed_key_index_[pressed_key_index] = looper_note_index;
-    // TODO move this into RecordNoteOn?
-    LooperPlayNoteOn(looper_note_index, e.note, e.velocity & 0x7f, true);
+    looper_note_recording_pressed_key_[pressed_key_index] = looper_note_index;
+    // TODO move this into RecordNoteOn? but looper_note_index has to be set first
+    LooperPlayNoteOn(looper_note_index, e.note, e.velocity & 0x7f);
   }
 
   inline void LooperRecordNoteOff(uint8_t pressed_key_index) {
     const stmlib::NoteEntry& e = manual_keys_.stack.note(pressed_key_index);
-    uint8_t looper_note_index = looper_note_index_for_pressed_key_index_[pressed_key_index];
-    looper_note_index_for_pressed_key_index_[pressed_key_index] = looper::kNullIndex;
+    uint8_t looper_note_index = looper_note_recording_pressed_key_[pressed_key_index];
     if (seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index)) {
-      LooperPlayNoteOff(looper_note_index, e.note, true);
+      LooperPlayNoteOff(looper_note_index, e.note);
     }
+    looper_note_recording_pressed_key_[pressed_key_index] = looper::kNullIndex;
   }
 
   inline bool RecordsLoops() const {
@@ -744,7 +749,7 @@ class Part {
   bool looper_needs_advance_;
 
   // Tracks which looper notes are currently being recorded
-  uint8_t looper_note_index_for_pressed_key_index_[kNoteStackSize];
+  uint8_t looper_note_recording_pressed_key_[kNoteStackSize];
 
   // Tracks which looper notes are currently playing, so they can be turned off later
   uint8_t looper_note_index_for_generated_note_index_[kNoteStackSize];
