@@ -356,7 +356,7 @@ class Part {
   // applied here. It is up to the caller to call accepts() first to check
   // whether the message should be sent to the part.
   void PressedKeysNoteOn(PressedKeys &keys, uint8_t pitch, uint8_t velocity);
-  void PressedKeysNoteOff(PressedKeys &keys, uint8_t pitch);
+  bool PressedKeysNoteOff(PressedKeys &keys, uint8_t pitch);
   bool NoteOn(uint8_t channel, uint8_t note, uint8_t velocity);
   bool NoteOff(uint8_t channel, uint8_t note);
   uint8_t TransposeInputPitch(uint8_t pitch, int8_t transpose_octaves) {
@@ -377,9 +377,7 @@ class Part {
   void Clock();
   void Start();
   void Stop();
-  void StopRecording() {
-    seq_recording_ = false;
-  }
+  void StopRecording();
   void StartRecording();
   void DeleteSequence();
 
@@ -465,7 +463,7 @@ class Part {
     uint8_t looper_note_index = seq_.looper_tape.RecordNoteOn(
       this, looper_pos_, pitch, velocity
     );
-    looper_note_index_for_pitch_[pitch] = looper_note_index;
+    looper_note_index_for_recording_pitch_[pitch] = looper_note_index;
     LooperPlayNoteOn(looper_note_index, pitch, velocity, true);
   }
 
@@ -488,11 +486,11 @@ class Part {
 
   inline void SustainOn() {
     PressedKeysSustainOn(manual_keys_);
-    PressedKeysSustainOn(arpeg_keys_);
+    PressedKeysSustainOn(arp_keys_);
   }
   inline void SustainOff() {
     PressedKeysSustainOff(manual_keys_);
-    PressedKeysSustainOff(arpeg_keys_);
+    PressedKeysSustainOff(arp_keys_);
   }
   void PressedKeysSustainOn(PressedKeys &keys);
   void PressedKeysSustainOff(PressedKeys &keys);
@@ -620,7 +618,9 @@ class Part {
   inline VoicingSettings* mutable_voicing_settings() { return &voicing_; }
   inline SequencerSettings* mutable_sequencer_settings() { return &seq_; }
 
-  inline bool has_notes() const { return manual_keys_.stack.size(); }
+  inline bool has_notes() const {
+    return manual_keys_.stack.size() || arp_keys_.stack.size();
+  }
   
   inline bool recording() const { return seq_recording_; }
   inline bool overdubbing() const { return seq_overdubbing_; }
@@ -682,7 +682,7 @@ class Part {
   bool polychained_;
 
   PressedKeys manual_keys_;
-  PressedKeys arpeg_keys_;
+  PressedKeys arp_keys_;
   stmlib::NoteStack<kNoteStackSize> generated_notes_;  // by sequencer or arpeggiator.
   stmlib::NoteStack<kNoteStackSize> mono_allocator_;
   stmlib::VoiceAllocator<kNumMaxVoicesPerPart * 2> poly_allocator_;
@@ -703,7 +703,7 @@ class Part {
   bool looper_needs_advance_;
 
   // Tracks which looper notes are currently being recorded
-  uint8_t looper_note_index_for_pitch_[kNoteStackSize];
+  uint8_t looper_note_index_for_recording_pitch_[kNoteStackSize];
 
   // Tracks which looper notes are currently playing, so they can be turned off later
   uint8_t looper_note_index_for_generated_note_index_[kNoteStackSize];
