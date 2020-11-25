@@ -227,7 +227,7 @@ class Multi {
           part_[i].has_velocity_filtering()
         );
         if (same_channel && !both_velocity_filtering) {
-          part_[i].set_transposable(false);
+          part_[i].set_accepts_input(false);
         }
       }
       recording_ = true;
@@ -238,7 +238,7 @@ class Multi {
     if (recording_) {
       part_[part].StopRecording();
       for (uint8_t i = 0; i < num_active_parts_; ++i) {
-        part_[i].set_transposable(true);
+        part_[i].set_accepts_input(true);
       }
       recording_ = false;
     }

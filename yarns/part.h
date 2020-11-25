@@ -316,6 +316,8 @@ struct ArpeggiatorState {
 
 struct PressedKeys {
 
+  static const uint8_t VELOCITY_SUSTAIN_MASK = 0x80;
+
   stmlib::NoteStack<kNoteStackSize> stack;
   bool ignore_note_off_messages;
   bool release_latched_keys_on_next_note_on;
@@ -324,6 +326,7 @@ struct PressedKeys {
     stack.Init();
     ResetLatch();
   }
+
   void ResetLatch() {
     ignore_note_off_messages = false;
     release_latched_keys_on_next_note_on = false;
@@ -335,6 +338,37 @@ struct PressedKeys {
   void UnlatchOnNextNoteOn() {
     ignore_note_off_messages = false;
     release_latched_keys_on_next_note_on = true;
+  }
+
+  bool SustainableNoteOff(uint8_t pitch) {
+    SetSustain(pitch);
+    if (IsSustained(pitch)) { return false; }
+    stack.NoteOff(pitch);
+    return true;
+  }
+
+  void SetSustain(uint8_t pitch) {
+    if (!ignore_note_off_messages) { return; }
+    for (uint8_t i = 1; i <= stack.max_size(); ++i) {
+      // Flag the note so that it is removed once the sustain pedal is released.
+      stmlib::NoteEntry* e = stack.mutable_note(i);
+      if (e->note == pitch && e->velocity) {
+        e->velocity |= VELOCITY_SUSTAIN_MASK;
+      }
+    }
+  }
+
+  void SustainAll() {
+    for (uint8_t i = 1; i <= stack.max_size(); ++i) {
+      stmlib::NoteEntry* e = stack.mutable_note(i);
+      if (e->note == stmlib::NOTE_STACK_FREE_SLOT) { continue; }
+      e->velocity |= VELOCITY_SUSTAIN_MASK;
+    }
+  }
+
+  bool IsSustained(uint8_t pitch) const {
+    // If the note is flagged, it can only be released by ReleaseLatchedNotes
+    return stack.note(stack.Find(pitch)).velocity & VELOCITY_SUSTAIN_MASK;
   }
 
 };
@@ -355,8 +389,7 @@ class Part {
   // Also, note that channel / keyrange / velocity range filtering is not
   // applied here. It is up to the caller to call accepts() first to check
   // whether the message should be sent to the part.
-  void PressedKeysNoteOn(PressedKeys &keys, uint8_t pitch, uint8_t velocity);
-  bool PressedKeysNoteOff(PressedKeys &keys, uint8_t pitch);
+  uint8_t PressedKeysNoteOn(PressedKeys &keys, uint8_t pitch, uint8_t velocity);
   bool NoteOn(uint8_t channel, uint8_t note, uint8_t velocity);
   bool NoteOff(uint8_t channel, uint8_t note);
   uint8_t TransposeInputPitch(uint8_t pitch, int8_t transpose_octaves) {
@@ -431,14 +464,12 @@ class Part {
         }
         arp_pitch_for_looper_note_[looper_note_index] = arp_.step.note();
       } //  else if tie, arp_pitch_for_looper_note_ is already set to the tied pitch
-    } else {
-      if (recording || !manual_keys_.stack.Find(pitch)) {
-        InternalNoteOn(pitch, velocity);
-      }
+    } else if (recording || !manual_keys_.stack.Find(pitch)) {
+      InternalNoteOn(pitch, velocity);
     }
   }
 
-  inline void LooperPlayNoteOff(uint8_t looper_note_index, uint8_t pitch) {
+  inline void LooperPlayNoteOff(uint8_t looper_note_index, uint8_t pitch, bool recording = false) {
     looper_note_index_for_generated_note_index_[generated_notes_.NoteOff(pitch)] = looper::kNullIndex;
     if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
       uint8_t arp_pitch = arp_pitch_for_looper_note_[looper_note_index];
@@ -453,18 +484,28 @@ class Part {
       } else {
         InternalNoteOff(arp_pitch);
       }
-    } else if (!manual_keys_.stack.Find(pitch)) {
+    } else if (recording || !manual_keys_.stack.Find(pitch)) {
       InternalNoteOff(pitch);
     }
   }
 
-  inline void LooperRecordNoteOn(uint8_t pitch, uint8_t velocity) {
-    pitch = ArpUndoTransposeInputPitch(pitch);
+  inline void LooperRecordNoteOn(uint8_t pressed_key_index) {
+    const stmlib::NoteEntry& e = manual_keys_.stack.note(pressed_key_index);
     uint8_t looper_note_index = seq_.looper_tape.RecordNoteOn(
-      this, looper_pos_, pitch, velocity
+      this, looper_pos_, e.note, e.velocity & 0x7f
     );
-    looper_note_index_for_recording_pitch_[pitch] = looper_note_index;
-    LooperPlayNoteOn(looper_note_index, pitch, velocity, true);
+    looper_note_index_for_pressed_key_index_[pressed_key_index] = looper_note_index;
+    // TODO move this into RecordNoteOn?
+    LooperPlayNoteOn(looper_note_index, e.note, e.velocity & 0x7f, true);
+  }
+
+  inline void LooperRecordNoteOff(uint8_t pressed_key_index) {
+    const stmlib::NoteEntry& e = manual_keys_.stack.note(pressed_key_index);
+    uint8_t looper_note_index = looper_note_index_for_pressed_key_index_[pressed_key_index];
+    looper_note_index_for_pressed_key_index_[pressed_key_index] = looper::kNullIndex;
+    if (seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index)) {
+      LooperPlayNoteOff(looper_note_index, e.note, true);
+    }
   }
 
   inline bool RecordsLoops() const {
@@ -506,7 +547,7 @@ class Part {
   inline void RecordStep(const SequencerStep& step) {
     if (seq_recording_) {
       SequencerStep* target = &seq_.step[seq_rec_step_];
-      target->data[0] = ArpUndoTransposeInputPitch(step.data[0]);
+      target->data[0] = step.data[0];
       target->data[1] |= step.data[1];
       ++seq_rec_step_;
       uint8_t last_step = seq_overdubbing_ ? seq_.num_steps : kNumSteps;
@@ -540,7 +581,7 @@ class Part {
   }
 
   inline bool accepts(uint8_t channel) const {
-    if (!(transposable_ || seq_recording_)) {
+    if (!(accepts_input_ || seq_recording_)) {
       return false;
     }
     return midi_.channel == 0x10 || midi_.channel == channel;
@@ -654,8 +695,8 @@ class Part {
     has_siblings_ = has_siblings;
   }
   
-  void set_transposable(bool transposable) {
-    transposable_ = transposable;
+  void set_accepts_input(bool b) {
+    accepts_input_ = b;
   }
   
  private:
@@ -703,7 +744,7 @@ class Part {
   bool looper_needs_advance_;
 
   // Tracks which looper notes are currently being recorded
-  uint8_t looper_note_index_for_recording_pitch_[kNoteStackSize];
+  uint8_t looper_note_index_for_pressed_key_index_[kNoteStackSize];
 
   // Tracks which looper notes are currently playing, so they can be turned off later
   uint8_t looper_note_index_for_generated_note_index_[kNoteStackSize];
@@ -713,7 +754,7 @@ class Part {
   uint16_t gate_length_counter_;
   
   bool has_siblings_;
-  bool transposable_;
+  bool accepts_input_;
   
   bool multi_is_recording_;
 

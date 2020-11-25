@@ -61,7 +61,7 @@ void Part::Init() {
   num_voices_ = 0;
   polychained_ = false;
   seq_recording_ = false;
-  transposable_ = true;
+  accepts_input_ = true;
   seq_.looper_tape.RemoveAll();
   bar_lfo_.Init();
   LooperRewind();
@@ -126,7 +126,7 @@ void Part::AllocateVoices(Voice* voice, uint8_t num_voices, bool polychain) {
   TouchVoices();
 }
 
-void Part::PressedKeysNoteOn(PressedKeys &keys, uint8_t pitch, uint8_t velocity) {
+uint8_t Part::PressedKeysNoteOn(PressedKeys &keys, uint8_t pitch, uint8_t velocity) {
   if (keys.release_latched_keys_on_next_note_on) {
     bool still_latched = keys.ignore_note_off_messages;
 
@@ -137,7 +137,7 @@ void Part::PressedKeysNoteOn(PressedKeys &keys, uint8_t pitch, uint8_t velocity)
     keys.release_latched_keys_on_next_note_on = still_latched;
     keys.ignore_note_off_messages = still_latched;
   }
-  keys.stack.NoteOn(pitch, velocity);
+  return keys.stack.NoteOn(pitch, velocity);
 }
 
 bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
@@ -148,11 +148,12 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
   velocity = (128 * (velocity - midi_.min_velocity)) / (midi_.max_velocity - midi_.min_velocity + 1);
 
   if (seq_recording_) {
+    note = ArpUndoTransposeInputPitch(note);
     if (seq_.clock_quantization == 1 && !sent_from_step_editor) {
       RecordStep(SequencerStep(note, velocity));
     } else if (seq_.clock_quantization == 0) {
-      PressedKeysNoteOn(manual_keys_, note, velocity);
-      LooperRecordNoteOn(note, velocity);
+      uint8_t pressed_key_index = PressedKeysNoteOn(manual_keys_, note, velocity);
+      LooperRecordNoteOn(pressed_key_index);
     }
   } else if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
     PressedKeysNoteOn(arp_keys_, note, velocity);
@@ -168,43 +169,20 @@ bool Part::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity) {
   return midi_.out_mode == MIDI_OUT_MODE_THRU && !polychained_;
 }
 
-bool Part::PressedKeysNoteOff(PressedKeys &keys, uint8_t pitch) {
-  if (keys.ignore_note_off_messages) {
-    for (uint8_t i = 1; i <= keys.stack.max_size(); ++i) {
-      // Flag the note so that it is removed once the sustain pedal is released.
-      NoteEntry* e = keys.stack.mutable_note(i);
-      if (e->note == pitch && e->velocity) {
-        e->velocity |= 0x80;
-      }
-    }
-    return false;
-  }
-  uint8_t index = keys.stack.Find(pitch);
-  if (keys.stack.note(index).velocity & 0x80) {
-    // If the note is flagged, it can only be released by ReleaseLatchedNotes
-    return false;
-  }
-  keys.stack.NoteOff(pitch);
-  return true;
-}
-
 bool Part::NoteOff(uint8_t channel, uint8_t note) {
   bool sent_from_step_editor = channel & 0x80;
 
   uint8_t recording_pitch = ArpUndoTransposeInputPitch(note);
-  uint8_t looper_note_index = looper_note_index_for_recording_pitch_[recording_pitch];
-  if (seq_recording_ && seq_.clock_quantization == 0 && looper_note_index != looper::kNullIndex) {
-    // If this pitch is being recorded to the looper
-    if (
-      PressedKeysNoteOff(manual_keys_, note)
-    ) {
-      looper_note_index_for_recording_pitch_[recording_pitch] = looper::kNullIndex;
-      if (seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index)) {
-        LooperPlayNoteOff(looper_note_index, recording_pitch);
-      }
+  uint8_t pressed_key_index = manual_keys_.stack.Find(recording_pitch);
+  if (seq_recording_ && seq_.clock_quantization == 0 && pressed_key_index) {
+    // If this pitch has a manual key
+    manual_keys_.SetSustain(recording_pitch);
+    if (!manual_keys_.IsSustained(recording_pitch)) {
+      LooperRecordNoteOff(pressed_key_index);
+      manual_keys_.stack.NoteOff(recording_pitch);
     }
   } else if (midi_.play_mode == PLAY_MODE_ARPEGGIATOR) {
-    PressedKeysNoteOff(arp_keys_, note);
+    arp_keys_.SustainableNoteOff(note);
   } else if (
     midi_.play_mode == PLAY_MODE_MANUAL ||
     sent_from_step_editor ||
@@ -213,7 +191,7 @@ bool Part::NoteOff(uint8_t channel, uint8_t note) {
       !generated_notes_.Find(note)
     )
   ) {
-    if (PressedKeysNoteOff(manual_keys_, note)) {
+    if (manual_keys_.SustainableNoteOff(note)) {
       InternalNoteOff(note);
     }
   }
@@ -227,11 +205,7 @@ void Part::PressedKeysSustainOn(PressedKeys &keys) {
       break;
     /*
     case SUSTAIN_MODE_SOSTENUTO:
-      for (uint8_t i = 1; i <= pressed_keys_.max_size(); ++i) {
-        // Flag the note so that it is removed once the sustain pedal is released.
-        NoteEntry* e = pressed_keys_.mutable_note(i);
-        e->velocity |= 0x80;
-      }
+      keys.SustainAll();
       break;
     */
     case SUSTAIN_MODE_LATCH:
@@ -257,11 +231,7 @@ void Part::PressedKeysSustainOff(PressedKeys &keys) {
     */
     case SUSTAIN_MODE_LATCH:
       // TODO is flagging appropriate here, or just in NoteOff?
-      for (uint8_t i = 1; i <= keys.stack.max_size(); ++i) {
-        stmlib::NoteEntry* e = keys.stack.mutable_note(i);
-        if (e->note == stmlib::NOTE_STACK_FREE_SLOT) { continue; }
-        e->velocity |= 0x80;
-      }
+      keys.SustainAll();
       keys.UnlatchOnNextNoteOn();
       break;
     case SUSTAIN_MODE_MOMENTARY_LATCH:
@@ -477,8 +447,8 @@ void Part::LooperRewind() {
   looper_needs_advance_ = false;
   seq_.looper_tape.ResetHead();
   std::fill(
-    &looper_note_index_for_recording_pitch_[0],
-    &looper_note_index_for_recording_pitch_[kNoteStackSize],
+    &looper_note_index_for_pressed_key_index_[0],
+    &looper_note_index_for_pressed_key_index_[kNoteStackSize],
     looper::kNullIndex
   );
   std::fill(
@@ -509,14 +479,12 @@ void Part::Stop() {
 void Part::StopRecording() {
   if (!seq_recording_) { return; }
   seq_recording_ = false;
-  if (RecordsLoops()) {
+  if (seq_.clock_quantization == 0) {
     // Stop recording any held notes
     for (uint8_t i = 1; i <= manual_keys_.stack.max_size(); ++i) {
       const NoteEntry& e = manual_keys_.stack.note(i);
       if (e.note == NOTE_STACK_FREE_SLOT) { continue; }
-      uint8_t looper_note_index = looper_note_index_for_recording_pitch_[e.note];
-      if (looper_note_index == looper::kNullIndex) { continue; }
-      seq_.looper_tape.RecordNoteOff(looper_pos_, looper_note_index);
+      LooperRecordNoteOff(i);
     }
   }
 }
@@ -526,12 +494,12 @@ void Part::StartRecording() {
     return;
   }
   seq_recording_ = true;
-  if (RecordsLoops()) {
+  if (seq_.clock_quantization == 0) {
     // Start recording any held notes
     for (uint8_t i = 1; i <= manual_keys_.stack.max_size(); ++i) {
       const NoteEntry& e = manual_keys_.stack.note(i);
       if (e.note == NOTE_STACK_FREE_SLOT) { continue; }
-      LooperRecordNoteOn(e.note, e.velocity);
+      LooperRecordNoteOn(i);
     }
   } else {
     seq_rec_step_ = 0;
@@ -572,7 +540,7 @@ void Part::StopSequencerArpeggiatorNotes() {
 const SequencerStep Part::BuildSeqStep() const {
   const SequencerStep& step = seq_.step[seq_step_];
   int16_t note = step.note();
-  if (step.has_note() && manual_keys_.stack.size() && transposable_) {
+  if (step.has_note() && manual_keys_.stack.size() && accepts_input_) {
     switch (midi_.input_response) {
       case SEQUENCER_INPUT_RESPONSE_TRANSPOSE:
         {
@@ -778,8 +746,8 @@ void Part::ReleaseLatchedNotes(PressedKeys &keys) {
   keys.ignore_note_off_messages = false;
   for (uint8_t i = 1; i <= keys.stack.max_size(); ++i) {
     NoteEntry* e = keys.stack.mutable_note(i);
-    if (e->velocity & 0x80) {
-      e->velocity &= ~0x80; // Un-flag the note
+    if (e->velocity & PressedKeys::VELOCITY_SUSTAIN_MASK) {
+      e->velocity &= ~PressedKeys::VELOCITY_SUSTAIN_MASK; // Un-flag the note
       NoteOff(tx_channel(), e->note);
       // TODO should this be able to kill a manual key from arp key, or vice versa?
     }
