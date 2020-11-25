@@ -500,7 +500,6 @@ class Part {
       this, looper_pos_, e.note, e.velocity & 0x7f
     );
     looper_note_recording_pressed_key_[pressed_key_index] = looper_note_index;
-    // TODO move this into RecordNoteOn? but looper_note_index has to be set first
     LooperPlayNoteOn(looper_note_index, e.note, e.velocity & 0x7f);
   }
 

@@ -230,7 +230,6 @@ void Part::PressedKeysSustainOff(PressedKeys &keys) {
       break;
     */
     case SUSTAIN_MODE_LATCH:
-      // TODO is flagging appropriate here, or just in NoteOff?
       keys.SustainAll();
       keys.UnlatchOnNextNoteOn();
       break;
@@ -749,7 +748,6 @@ void Part::ReleaseLatchedNotes(PressedKeys &keys) {
     if (e->velocity & PressedKeys::VELOCITY_SUSTAIN_MASK) {
       e->velocity &= ~PressedKeys::VELOCITY_SUSTAIN_MASK; // Un-flag the note
       NoteOff(tx_channel(), e->note);
-      // TODO should this be able to kill a manual key from arp key, or vice versa?
     }
   }
 }
