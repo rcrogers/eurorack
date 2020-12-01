@@ -768,23 +768,81 @@ void Part::ReleaseLatchedNotes(PressedKeys &keys) {
 }
 
 void Part::DispatchSortedNotes(bool unison, bool force_legato) {
-  uint8_t n = mono_allocator_.size();
-  for (uint8_t i = 0; i < num_voices_; ++i) {
-    uint8_t index = 0xff;
-    if (unison && n < num_voices_) {
+  uint8_t num_notes = mono_allocator_.size();
+  for (uint8_t voice_index = 0; voice_index < num_voices_; ++voice_index) {
+    uint8_t note_index = 0xff;
+    if (unison && num_notes < num_voices_) {
       // distribute extra voices evenly among notes
-      index = n ? (i * n / num_voices_) : 0xff;
-    } else {
+      note_index = num_notes ? (voice_index * num_notes / num_voices_) : 0xff;
+      /*
+      voice 0: 0 * 2 / 3 = 0
+      voice 1: 1 * 2 / 3 = 0
+      voice 2: 2 * 2 / 3 = 1
+      */
+    } else if (voice_index < num_notes) {
       index = i < mono_allocator_.size() ? i : 0xff;
+      /*
+      voice 0: 0
+      voice 1: 1
+      voice 2: 2
+      but could minimize jumping by:
+      voice 0: 0
+      voice 1: 2
+      voice 2: 1
+
+      voice 0: 0
+      voice 1: 2
+      voice 2: off
+
+      voice 0: 0
+      voice 1: 2
+      voice 2: off
+
+      FindVoiceForNote ?
+      steal back from last voice toward voice 0 as more notes added? not robust against changes
+      is this voice playing a note that's still relevant?  if not, reassign it.  there should be only one of these...?
+      calculate the min and max voices per note, as floor and ceiling (resp) of voices / notes
+        - if max == min, give that many voices to each note
+        - algo:
+            - alloc_notes = 0
+            - from highest priority note to lowest:
+                - if alloc_notes + max <= num_notes
+                    - alloc_notes += max
+                - else
+                    - 
+
+            
+
+        - ranges from:
+            - 4v, 1n: min 4, max 4
+            - 4v, 2n: min 2, max 2
+            - 4v, 3n: min 1, max 2
+            - 4v, 4n: min 1, max 1
+            - 4v, 5n: min 0, max 1
+            - 3v, 1n: min 3, max 3
+            - 3v, 2n: min 1, max 2
+            - 3v, 3n: 
+            - 3v, 4n: 
+            - 2v, 1n: 
+            - 2v, 2n: 
+            - 2v, 3n: 
+            - 1v, 1n: 
+            - 1v, 2n: 
+        - 
+      for each voice:
+        
+      */
+      // TODO For some reason, going from < num_voices_ to here seems to cause all voices to retrigger
+      note_index = voice_index == 0 ? 0 : num_voices_ - voice_index;
     }
-    if (index != 0xff) {
-      const NoteEntry& note_entry = priority_note(index);
-      bool legato = force_legato || active_note_[i] == note_entry.note;
-      VoiceNoteOn(voice_[i], note_entry.note, note_entry.velocity, legato);
-      active_note_[i] = note_entry.note;
+    if (note_index != 0xff) {
+      const NoteEntry& note_entry = priority_note(note_index);
+      bool legato = force_legato || active_note_[voice_index] == note_entry.note;
+      VoiceNoteOn(voice_[voice_index], note_entry.note, note_entry.velocity, legato);
+      active_note_[voice_index] = note_entry.note;
     } else {
-      voice_[i]->NoteOff();
-      active_note_[i] = VOICE_ALLOCATION_NOT_FOUND;
+      voice_[voice_index]->NoteOff();
+      active_note_[voice_index] = VOICE_ALLOCATION_NOT_FOUND;
     }
   }
 }
