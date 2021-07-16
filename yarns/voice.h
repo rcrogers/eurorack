@@ -49,7 +49,9 @@ enum TriggerShape {
   TRIGGER_SHAPE_EXPONENTIAL,
   TRIGGER_SHAPE_RING,
   TRIGGER_SHAPE_STEPS,
-  TRIGGER_SHAPE_NOISE_BURST
+  TRIGGER_SHAPE_NOISE_BURST,
+
+  TRIGGER_SHAPE_LAST
 };
 
 enum OscillatorMode {
@@ -92,6 +94,7 @@ class Voice {
   void ResetAllControllers();
 
   void Refresh(uint8_t voice_index);
+  void SetPortamento(int16_t note, uint8_t velocity, uint8_t portamento);
   void NoteOn(int16_t note, uint8_t velocity, uint8_t portamento, bool trigger);
   void NoteOff();
   void ControlChange(uint8_t controller, uint8_t value);
@@ -157,9 +160,10 @@ class Voice {
   inline void set_timbre_init(uint8_t n) {
     timbre_init_target_ = n << (16 - 7); }
   inline void set_timbre_mod_lfo(uint8_t n) {
-    timbre_mod_lfo_target_ = n << (16 - 7); }
+    timbre_mod_lfo_target_ = UINT16_MAX - lut_env_expo[((127 - n) << 1)];
+  }
   inline void set_timbre_mod_envelope(int16_t n) {
-    timbre_mod_envelope_target_ = n;
+    timbre_mod_envelope_ = n;
   }
   
   inline void set_tuning(int8_t coarse, int8_t fine) {
@@ -240,6 +244,9 @@ class Voice {
   uint32_t trigger_phase_increment_;
   uint32_t trigger_phase_;
 
+  uint8_t refresh_counter_;
+  Interpolator pitch_lfo_, timbre_lfo_, amplitude_lfo_, scaled_vibrato_lfo_;
+
   uint16_t tremolo_mod_target_;
   uint16_t tremolo_mod_current_;
 
@@ -247,8 +254,7 @@ class Voice {
   uint16_t timbre_mod_lfo_current_;
   uint16_t timbre_init_target_;
   uint16_t timbre_init_current_;
-  int16_t timbre_mod_envelope_target_;
-  int16_t timbre_mod_envelope_current_;
+  int16_t timbre_mod_envelope_;
 
   bool has_audio_listener_;
 
@@ -273,9 +279,9 @@ class CVOutput {
     dc_role_ = dc_role;
 
     num_audio_voices_ = num_audio;
-    int32_t offset = volts_dac_code(0);
-    // Combined audio amplitude 4Vpp
-    int32_t scale = (offset - volts_dac_code(4)) / num_audio_voices_;
+    uint16_t offset = volts_dac_code(0);
+    uint16_t scale = volts_dac_code(6) - offset; // 6Vpp
+    scale /= num_audio_voices_;
     for (uint8_t i = 0; i < num_audio_voices_; ++i) {
       Voice* audio_voice = audio_voices_[i] = dc_voice_ + i;
       audio_voice->oscillator()->Init(scale, offset);
@@ -283,14 +289,15 @@ class CVOutput {
     }
   }
 
-  inline bool gate() const {
+  inline bool gate() const { return dc_voice_->gate(); }
+  inline bool trigger() const {
     if (is_audio()) {
       for (uint8_t i = 0; i < num_audio_voices_; ++i) {
-        if (audio_voices_[i]->gate()) { return true; }
+        if (audio_voices_[i]->trigger()) { return true; }
       }
       return false;
     } else {
-      return dc_voice_->gate();
+      return dc_voice_->trigger();
     }
   }
 
@@ -324,8 +331,8 @@ class CVOutput {
 
   inline uint16_t DacCodeFrom16BitValue(uint16_t value) const {
     uint32_t v = static_cast<uint32_t>(value);
-    uint32_t scale = volts_dac_code(0) - volts_dac_code(7);
-    return static_cast<uint16_t>(volts_dac_code(0) - (scale * v >> 16));
+    int32_t scale = volts_dac_code(7) - volts_dac_code(0);
+    return static_cast<uint16_t>(volts_dac_code(0) + (scale * v >> 16));
   }
 
   inline uint16_t note_dac_code() const {

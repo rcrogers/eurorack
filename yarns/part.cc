@@ -444,6 +444,11 @@ void Part::Clock() {
   looper_.Clock();
 }
 
+bool Part::new_beat() const {
+  return arp_seq_prescaler_ > 0 &&
+    arp_seq_prescaler_ <= (lut_clock_ratio_ticks[seq_.clock_division] >> 3);
+}
+
 void Part::Start() {
   arp_seq_prescaler_ = 0;
 
@@ -620,7 +625,7 @@ const ArpeggiatorState Part::BuildArpState(SequencerStep seq_step) const {
       pattern_length = seq_.euclidean_length;
       pattern_mask = 1 << ((next.step_index + seq_.euclidean_rotate) % seq_.euclidean_length);
       // Read euclidean pattern from ROM.
-      uint16_t offset = static_cast<uint16_t>(seq_.euclidean_length - 1) * 32;
+      uint16_t offset = static_cast<uint16_t>(seq_.euclidean_length - 1) << 5;
       pattern = lut_euclidean[offset + seq_.euclidean_fill];
       hit = pattern_mask & pattern;
     } else {
@@ -935,7 +940,7 @@ void Part::InternalNoteOn(uint8_t note, uint8_t velocity) {
           legato = false;
         } else {
           // Begin portamento from the preceding priority note
-          voice_[voice_index]->NoteOn(Tune(before.note), velocity, 0, false);
+          voice_[voice_index]->SetPortamento(Tune(before.note), velocity, 0);
         }
       }
       // Prevent the same note from being simultaneously played on two channels.

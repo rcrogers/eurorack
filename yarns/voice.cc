@@ -47,6 +47,8 @@ const int32_t kOctave = 12 << 7;
 const int32_t kMaxNote = 120 << 7;
 const int32_t kQuadrature = 0x40000000;
 
+const uint8_t kLowFreqRefresh = 32; // 4 kHz / 32 = 125 Hz (the ~minimum that doesn't cause obvious LFO sampling error)
+
 void Voice::Init() {
   note_ = -1;
   note_source_ = note_target_ = note_portamento_ = 60 << 7;
@@ -62,8 +64,13 @@ void Voice::Init() {
 
   tremolo_mod_current_ = 0;
   timbre_mod_lfo_current_ = 0;
-  timbre_mod_envelope_current_ = 0;
   timbre_init_current_ = 0;
+
+  refresh_counter_ = 0;
+  pitch_lfo_.Init(kLowFreqRefresh);
+  timbre_lfo_.Init(kLowFreqRefresh);
+  amplitude_lfo_.Init(kLowFreqRefresh);
+  scaled_vibrato_lfo_.Init(kLowFreqRefresh);
   
   synced_lfo_.Init();
   envelope_.Init();
@@ -91,7 +98,7 @@ void CVOutput::Init(bool reset_calibration) {
   }
   dirty_ = false;
 
-  dac_interpolator_.Init(24);
+  dac_interpolator_.Init(10); // 40 kHz / 4 kHz
 }
 
 void CVOutput::Calibrate(uint16_t* calibrated_dac_code) {
@@ -152,8 +159,6 @@ void Voice::Refresh(uint8_t voice_index) {
     timbre_init_current_, timbre_init_target_);
   timbre_mod_lfo_current_ = stmlib::slew(
     timbre_mod_lfo_current_, timbre_mod_lfo_target_);
-  timbre_mod_envelope_current_ = stmlib::slew(
-    timbre_mod_envelope_current_, timbre_mod_envelope_target_);
 
   // Compute base pitch with portamento.
   portamento_phase_ += portamento_phase_increment_;
@@ -185,24 +190,39 @@ void Voice::Refresh(uint8_t voice_index) {
   }
   // Use voice index to put voice LFOs in quadrature
   uint32_t lfo_phase = synced_lfo_.GetPhase();// + (voice_index << 30);
+  int32_t triangle_lfo = synced_lfo_.shape(LFO_SHAPE_TRIANGLE, lfo_phase);
 
-  // Add vibrato.
-  int32_t vibrato_lfo = synced_lfo_.shape(LFO_SHAPE_TRIANGLE, lfo_phase);
-  int32_t scaled_vibrato_lfo = vibrato_lfo * vibrato_mod_;
-  note += scaled_vibrato_lfo * vibrato_range_ >> 15;
+  if (refresh_counter_ == 0) {
+    uint16_t tremolo_lfo = 32767 - synced_lfo_.shape(tremolo_shape_);
+    uint16_t scaled_tremolo_lfo = tremolo_lfo * tremolo_mod_current_ >> 16;
+    amplitude_lfo_.SetTarget((UINT16_MAX - scaled_tremolo_lfo) >> 1);
+    amplitude_lfo_.ComputeSlope();
 
-  // Use quadrature phase for timbre modulation
-  int32_t timbre_lfo = synced_lfo_.shape(LFO_SHAPE_TRIANGLE, lfo_phase);
-  int32_t timbre_envelope_31 = envelope_.value() * timbre_mod_envelope_current_;
+    timbre_lfo_.SetTarget(triangle_lfo * timbre_mod_lfo_current_ >> (31 - 15));
+    timbre_lfo_.ComputeSlope();
+
+    scaled_vibrato_lfo_.SetTarget(triangle_lfo * vibrato_mod_ >> 8);
+    scaled_vibrato_lfo_.ComputeSlope();
+    pitch_lfo_.SetTarget(scaled_vibrato_lfo_.target() * vibrato_range_ >> 8);
+    pitch_lfo_.ComputeSlope();
+  }
+  refresh_counter_ = (refresh_counter_ + 1) % kLowFreqRefresh;
+
+  pitch_lfo_.Tick();
+  timbre_lfo_.Tick();
+  amplitude_lfo_.Tick();
+  scaled_vibrato_lfo_.Tick();
+
+  note += pitch_lfo_.value();
+
+  int32_t timbre_envelope_31 = envelope_.value() * timbre_mod_envelope_;
   int32_t timbre_15 =
     (timbre_init_current_ >> (16 - 15)) +
     (timbre_envelope_31 >> (31 - 15)) +
-    (timbre_lfo * timbre_mod_lfo_current_ >> (31 - 15));
+    timbre_lfo_.value();
   CONSTRAIN(timbre_15, 0, (1 << 15) - 1);
 
-  uint16_t tremolo_lfo = 32767 - synced_lfo_.shape(tremolo_shape_, lfo_phase);
-  uint16_t scaled_tremolo_lfo = tremolo_lfo * tremolo_mod_current_ >> 16;
-  uint16_t tremolo_drone = UINT16_MAX - scaled_tremolo_lfo;
+  uint16_t tremolo_drone = amplitude_lfo_.value() << 1;
   uint16_t tremolo_envelope = envelope_.value() * tremolo_drone >> 16;
   uint16_t gain = oscillator_mode_ == OSCILLATOR_MODE_ENVELOPED ?
     tremolo_envelope : tremolo_drone;
@@ -212,8 +232,8 @@ void Voice::Refresh(uint8_t voice_index) {
   mod_aux_[MOD_AUX_VELOCITY] = mod_velocity_ << 9;
   mod_aux_[MOD_AUX_MODULATION] = vibrato_mod_ << 9;
   mod_aux_[MOD_AUX_BEND] = static_cast<uint16_t>(mod_pitch_bend_) << 2;
-  mod_aux_[MOD_AUX_VIBRATO_LFO] = (scaled_vibrato_lfo >> 7) + 32768;
-  mod_aux_[MOD_AUX_FULL_LFO] = vibrato_lfo + 32768;
+  mod_aux_[MOD_AUX_VIBRATO_LFO] = (scaled_vibrato_lfo_.value() << 1) + 32768;
+  mod_aux_[MOD_AUX_FULL_LFO] = triangle_lfo + 32768;
   mod_aux_[MOD_AUX_ENVELOPE] = tremolo_envelope;
 
   if (retrigger_delay_) {
@@ -239,7 +259,15 @@ void CVOutput::Refresh() {
   if (is_audio()) return;
   if (dc_role_ == DC_PITCH) NoteToDacCode();
   dac_interpolator_.SetTarget((this->*dc_fn_table_[dc_role_])() >> 1);
-  dac_interpolator_.ComputeSlope();
+  if (is_envelope()) dac_interpolator_.ComputeSlope();
+}
+
+void Voice::SetPortamento(int16_t note, uint8_t velocity, uint8_t portamento) {
+  note_source_ = note_portamento_;  
+  note_target_ = note;
+  if (!portamento) {
+    note_source_ = note_target_;
+  }
 }
 
 void Voice::NoteOn(
@@ -247,11 +275,7 @@ void Voice::NoteOn(
     uint8_t velocity,
     uint8_t portamento,
     bool trigger) {
-  note_source_ = note_portamento_;  
-  note_target_ = note;
-  if (!portamento) {
-    note_source_ = note_target_;
-  }
+  SetPortamento(note, velocity, portamento);
   portamento_phase_ = 0;
   uint32_t num_portamento_increments_per_shape = LUT_PORTAMENTO_INCREMENTS_SIZE >> 1;
   if (portamento < num_portamento_increments_per_shape) {

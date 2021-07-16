@@ -115,10 +115,10 @@ class Deck {
 
   void RemoveOldestNote();
   void RemoveNewestNote();
-  inline void AdvanceToPresent() {
+  inline void AdvanceToPresent(bool play) {
     if (!needs_advance_) { return; }
     uint16_t new_pos = lfo_.GetPhase() >> 16;
-    Advance(new_pos, true);
+    Advance(new_pos, play);
   }
   uint8_t RecordNoteOn(uint8_t pitch, uint8_t velocity);
   bool RecordNoteOff(uint8_t index);

@@ -184,7 +184,7 @@ void Oscillator::Render() {
     phase += phase_increment; \
     timbre_.Tick(); gain_.Tick(); \
     body \
-    audio_buffer_.Overwrite(offset_ - ((gain_.value() * this_sample) >> 15)); \
+    audio_buffer_.Overwrite(offset_ + ((gain_.value() * this_sample) >> 15)); \
   } \
   next_sample_ = next_sample; \
   phase_ = phase; \
@@ -276,8 +276,10 @@ void Oscillator::RenderPulse() {
     while (true) { EDGES_PULSE(phase, phase_increment) }
     next_sample += phase < pw ? 0 : 32767;
     this_sample = (this_sample - 16384) << 1;
-    svf_.RenderSample(this_sample);
-    if (shape_ == OSC_SHAPE_LP_PULSE) this_sample = svf_.lp << 1;
+    if (shape_ == OSC_SHAPE_LP_PULSE) {
+      svf_.RenderSample(this_sample);
+      this_sample = svf_.lp << 1;
+    }
   )
 }
 
@@ -294,15 +296,17 @@ void Oscillator::RenderSaw() {
     next_sample += phase >> 18;
     next_sample += (phase - pw) >> 18;
     this_sample = (this_sample - 16384) << 1;
-    svf_.RenderSample(this_sample);
-    if (shape_ == OSC_SHAPE_LP_SAW) this_sample = svf_.lp << 1;
+    if (shape_ == OSC_SHAPE_LP_SAW) {
+      svf_.RenderSample(this_sample);
+      this_sample = svf_.lp << 1;
+    }
   )
 }
 
 #define SET_SYNC_INCREMENT \
-  modulator_phase_increment_ = ComputePhaseIncrement( \
-    pitch_ + (timbre_.target() >> 4) \
-  );
+  int32_t modulator_pitch = pitch_ + (timbre_.target() >> 3); \
+  CONSTRAIN(modulator_pitch, 0, kHighestNote - 1); \
+  modulator_phase_increment_ = ComputePhaseIncrement(modulator_pitch);
 
 void Oscillator::RenderSyncSine() {
   SET_SYNC_INCREMENT;
@@ -378,7 +382,9 @@ void Oscillator::RenderFM() {
   RENDER_LOOP(
     int16_t modulator = Interpolate824(wav_sine, modulator_phase);
     uint32_t phase_mod = modulator * timbre_.value();
-    phase_mod = (phase_mod << 3) + (phase_mod << 2); // FM index 0-3
+    // phase_mod = (phase_mod << 3) + (phase_mod << 2); // FM index 0-3
+    phase_mod <<= 3; // FM index 0-2
+    if (interval == 0) phase_mod <<= 1; // Double index range for 1:1 FM ratio
     this_sample = Interpolate824(wav_sine, phase + phase_mod);
   )
 }

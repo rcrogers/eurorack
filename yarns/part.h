@@ -692,6 +692,7 @@ class Part {
   void StopRecording();
   void StartRecording();
   void DeleteSequence();
+  bool new_beat() const;
 
   inline void NewLayout() {
     midi_.min_note = 0;
@@ -733,7 +734,7 @@ class Part {
   inline bool looper_in_use() const {
     return looped() && (
       midi_.play_mode == PLAY_MODE_SEQUENCER ||
-      seq_driven_arp()
+      (midi_.play_mode == PLAY_MODE_ARPEGGIATOR && seq_driven_arp())
     );
   }
 

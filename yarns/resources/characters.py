@@ -57,6 +57,14 @@ MASKS = {
   'p': 0x04,
 }
 
+CZ = 'afpkj'
+
+low_pass = 'pl'
+peaking = 'dnlm'
+notch = 'pmk'
+band_pass = 'nl'
+high_pass = 'nk'
+
 characters = {
   'A': 'afepkbc',
   'B': 'adhmbck',
@@ -142,7 +150,7 @@ characters = {
   ';': 'hn',
   '<': 'jl',
   '>': 'gn',
-  '?': 'fajm',
+  '?': 'fabkm',
   '=': 'pkd',
   '@': 'kmcbafed',
   '[': 'afed',
@@ -198,19 +206,18 @@ characters = {
   '\x9E': 'efa',
   '\x9F': 'fab',
 
-  '\xA0': 'pl', # low pass
-  '\xA1': 'nk', # high pass
-  '\xA2': 'pmk', # notch
+  '\xA0': low_pass,
+  '\xA1': high_pass,
+  '\xA2': notch,
 
-  '\xB0': 'fabpl', # pulse low pass
-  '\xB1': 'fabdnlm', # pulse peaking
-  '\xB2': 'fabnl', # pulse band pass
-  '\xB3': 'fabnk', # pulse high pass
+  # CZ
+  '\xB0': CZ + low_pass,
+  '\xB1': CZ + peaking,
+  '\xB2': CZ + band_pass,
+  '\xB3': CZ + high_pass,
 
-  '\xC0': 'fgpl', # saw low pass
-  '\xC1': 'fgdnlm', # saw peaking
-  '\xC2': 'fgnl', # saw band pass
-  '\xC3': 'fgnk', # saw high pass
+  '\xC0': 'plcb', # sqrt
+  '\xC1': 'fhak', # pi
   
   '\xFF': 'abcdefghjklmnp',
   
@@ -220,6 +227,6 @@ characters = {
 character_table = []
 for i in xrange(256):
   segments = characters.get(chr(i), '')
-  character_table.append(sum(MASKS[segment] for segment in segments))
+  character_table.append(sum(MASKS[segment] for segment in set(segments)))
   
 characters = [('characters', character_table)]

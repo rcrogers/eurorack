@@ -413,9 +413,9 @@ void Multi::GetCvGate(uint16_t* cv, bool* gate) {
       break;
 
     case LAYOUT_PARAPHONIC_PLUS_TWO:
-      gate[0] = cv_outputs_[0].gate();
+      gate[0] = cv_outputs_[0].trigger();
       gate[1] = cv_outputs_[1].gate();
-      gate[2] = settings_.clock_override ? clock() : voice_[kNumParaphonicVoices].trigger();
+      gate[2] = settings_.clock_override ? clock() : cv_outputs_[2].trigger();
       gate[3] = cv_outputs_[3].gate();
       break;
 
@@ -495,9 +495,11 @@ void Multi::GetLedsBrightness(uint8_t* brightness) {
     case LAYOUT_PARAPHONIC_PLUS_TWO:
       {
         const NoteEntry& last_note = part_[0].priority_note(NOTE_STACK_PRIORITY_LAST);
-        const uint8_t last_voice_index = part_[0].FindVoiceForNote(last_note.note);
-        brightness[0] = (last_voice_index == VOICE_ALLOCATION_NOT_FOUND) ? 0 :
-          (part_[0].voice(last_voice_index)->mod_aux(MOD_AUX_ENVELOPE) >> 8);
+        const uint8_t last_voice = part_[0].FindVoiceForNote(last_note.note);
+        brightness[0] = (
+          last_note.note == NOTE_STACK_FREE_SLOT ||
+          last_voice == VOICE_ALLOCATION_NOT_FOUND
+        ) ? 0 : part_[0].voice(last_voice)->velocity() << 1;
         brightness[1] = voice_[kNumParaphonicVoices].gate() ? (voice_[kNumParaphonicVoices].velocity() << 1) : 0;
         brightness[2] = voice_[kNumParaphonicVoices].aux_cv();
         brightness[3] = voice_[kNumParaphonicVoices + 1].gate() ? (voice_[kNumParaphonicVoices + 1].velocity() << 1) : 0;

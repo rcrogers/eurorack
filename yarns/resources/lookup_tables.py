@@ -38,7 +38,7 @@ LFO and portamento increments.
 
 lookup_tables_32 = []
 
-sample_rate = 2000
+sample_rate = 4000
 min_frequency = 1.0 / 8.0  # Hertz
 max_frequency = 16.0  # Hertz
 
@@ -57,7 +57,7 @@ lookup_tables_32.append(
 # Create lookup table for portamento.
 num_values = 128
 max_time = 5.0  # seconds
-min_time = 1.9 / sample_rate
+min_time = 1.001 / sample_rate
 gamma = 0.25
 min_increment = excursion / (max_time * sample_rate)
 max_increment = excursion / (min_time * sample_rate)
@@ -71,7 +71,7 @@ lookup_tables_32.append(
 )
 
 
-sample_rate = 48000
+sample_rate = 40000
 
 # Create table for pitch.
 a4_midi = 69
@@ -474,29 +474,71 @@ Integer ratios for clock sync and FM
 
 lookup_tables_string = []
 
-# irrationals = [
-#   0.5 * 2 ** (16 / 1200.0),
-#   1.0 * 2 ** (16 / 1200.0),
-#   2 * 2 ** (16 / 1200.0),
-#   numpy.pi / 4,
-#   numpy.pi / 2,
-#   numpy.pi,
-#   numpy.pi * 3 / 2,
-#   numpy.sqrt(2) / 2,
-#   numpy.sqrt(2) * 1,
-#   numpy.sqrt(2) * 2,
-#   numpy.sqrt(2) * 3,
-#   numpy.sqrt(2) * 4,
-#   numpy.sqrt(3) * 2,
-# ]
+import math
+MAXITER = 151
+def minkowski_inv(x):
+    if x > 1 or x < 0:
+        return math.floor(x) + minkowski_inv(x - math.floor(x))
+ 
+    if x == 1 or x == 0:
+        return x
+ 
+    cont_frac = [0]
+    current = 0
+    count = 1
+    i = 0
+ 
+    while True:
+        x *= 2
+ 
+        if current == 0:
+            if x < 1:
+                count += 1
+            else:
+                cont_frac.append(0)
+                cont_frac[i] = count
+ 
+                i += 1
+                count = 1
+                current = 1
+                x -= 1
+        else:
+            if x > 1:
+                count += 1
+                x -= 1
+            else:
+                cont_frac.append(0)
+                cont_frac[i] = count
+ 
+                i += 1
+                count = 1
+                current = 0
+ 
+        if x == math.floor(x):
+            cont_frac[i] = count
+            break
+ 
+        if i == MAXITER:
+            break
+ 
+    ret = 1.0 / cont_frac[i]
+    for j in range(i - 1, -1, -1):
+        ret = cont_frac[j] + 1.0 / ret
+ 
+    return 1.0 / ret
+
+# print(minkowski_inv(7.0 / 5)) # sqrt(2)
+# print(minkowski_inv(2.0 / 5)) # sqrt(2) - 1
+# print(minkowski_inv(5.0 / 3)) # golden ratio
+# print('\n')
 
 # Build normal form of carrier/modulator ratio, then use it to categorize
 # ratios, and calculate a correction factor for the carrier to keep a consistent
 # fundamental frequency
 # Thanks to Barry Truax: https://www.sfu.ca/~truax/fmtut.html
-def make_fm(ratio):
-  nf_car = car = ratio.numerator
-  nf_mod = mod = ratio.denominator
+def build_harmonic_fm(cm_ratio):
+  nf_car = car = cm_ratio.numerator
+  nf_mod = mod = cm_ratio.denominator
   while not (
     (nf_car == 1 and nf_mod == 1) or
     nf_mod >= 2.0 * nf_car
@@ -504,26 +546,75 @@ def make_fm(ratio):
     nf_car = abs(nf_car - nf_mod)
   family = Fraction(nf_car, nf_mod)
   carrier_correction = car / float(nf_car)
-  # print(ratio, family, nf_car, carrier_correction)
-  return (family, ratio, carrier_correction)
+  # print(cm_ratio, family, nf_car, carrier_correction)
+  return (family, cm_ratio, carrier_correction)
 
 fm_ratio_names = []
 fm_carrier_corrections = []
 fm_modulator_intervals = []
 
-fms = map(make_fm, numpy.unique([Fraction(*x) for x in itertools.product(range(1, 10), range(1, 10))]))
-fms = sorted(fms, key=lambda (family, ratio, carrier_correction): (family.numerator, family.denominator, ratio))
-seen = {}
-for (family, ratio, carrier_correction) in fms:
+fms = map(build_harmonic_fm, numpy.unique([Fraction(*x) for x in itertools.product(range(1, 10), range(1, 10))]))
+fms = sorted(fms, key=lambda (family, cm_ratio, carrier_correction): (family.numerator, family.denominator, cm_ratio))
+seen_family = {}
+used_ratios = []
+for (family, cm_ratio, carrier_correction) in fms:
   family = str(family)
-  if seen.has_key(family):
+  # print((family, cm_ratio, carrier_correction))
+  if seen_family.has_key(family):
+    # Among the ratios that share a given normal form, the set of sidebands is shared, but the energy skews toward higher sidebands as the carrier frequency increases.  This is timbrally interesting, but the effect is broadly similar to increasing the FM index.  Additionally, the carrier correction required by non-normal-form ratios only works when the FM index is greater than zero.  Finally, there are 15 normal-form ratios, plus 40 non-normal-form ratios.  There's more bang for the buck in using normal forms only.
     continue
-  seen[family] = True
+  seen_family[family] = True
+  similar_ratios = list(r for r in used_ratios if (r / cm_ratio) % 1 == 0)
+  if len(similar_ratios) > 0: # Sidebands are a subset of a previous ratio's
+    continue
+  if (cm_ratio != 1):
+    used_ratios.append(cm_ratio)
   fm_ratio_names.append(
-    str(ratio.numerator) + str(ratio.denominator) + ' FM ' + str(ratio.numerator) + '/' + str(ratio.denominator)
+    str(cm_ratio.numerator) + str(cm_ratio.denominator) + ' FM ' + str(cm_ratio.numerator) + '/' + str(cm_ratio.denominator)
   )
-  fm_modulator_intervals.append(128 * 12 * numpy.log2(1.0 / ratio))
-  fm_carrier_corrections.append(128 * 12 * numpy.log2(carrier_correction))
+  fm_modulator_intervals.append(128 * 12 * numpy.log2(1.0 / cm_ratio))
+  # fm_carrier_corrections.append(128 * 12 * numpy.log2(carrier_correction))
+
+inv_minkowski_count = 0
+for cm_ratio in reversed(used_ratios):
+  inv_mink = minkowski_inv(float(cm_ratio))
+  if ((inv_mink * 10) % 1 == 0):
+    continue
+  inv_minkowski_count += 1
+  # print([str(cm_ratio), 'inv_mink', inv_mink])
+  # print([str(cm_ratio), '1 / inv_mink', 1 / inv_mink])
+  # print('\n')
+  fm_modulator_intervals.append(128 * 12 * numpy.log2(1 / inv_mink))
+  fm_ratio_names.append('?' + str(inv_minkowski_count) + ' FM ?^-1(' + str(cm_ratio.numerator) + '/' + str(cm_ratio.denominator) + ')')
+
+for (name, mc_ratio) in ([
+  # 0.5 * 2 ** (16 / 1200.0), # 1/75 octave? Vibrato-like
+  # 1.0 * 2 ** (16 / 1200.0),
+  # 2 * 2 ** (16 / 1200.0),
+  ('\\xC1""4', numpy.pi / 4), # 4 : pi
+  ('\\xC1""3', numpy.pi / 3), # 3 : pi
+  ('\\xC1""2', numpy.pi / 2), # 2 : pi
+  (' \\xC1""', numpy.pi), # 1 : pi
+  ('2\\xC1""', numpy.pi * 2), # 1 : 2pi
+  ('3\\xC1""', numpy.pi * 3), # 1 : 3pi
+  ('3\\xC1""', numpy.pi * 3 / 2), # 2 : 3pi
+  # ('\\xC0""2', numpy.sqrt(2) / 2),
+  # ('1\\xC0""', numpy.sqrt(2) * 1), # Great bell
+  # ('2\\xC0""', numpy.sqrt(2) * 2),
+  # ('3\\xC0""', numpy.sqrt(2) * 3),
+  # ('4\\xC0""', numpy.sqrt(2) * 4),
+  # ('1\\xC0""', numpy.sqrt(3)),
+  # ('2\\xC0""', numpy.sqrt(3) * 2), # Even better bell
+] + [
+  # Metallic means
+  # ('M' + str(n), (n + numpy.sqrt(n ** 2 + 4)) / 2) for n in range(1, 10)
+]):
+  fm_modulator_intervals.append(128 * 12 * numpy.log2(mc_ratio))
+  fm_ratio_names.append(name + ' FM')
+
+# for n in [2, 3, 5, 6, 7, 8]:
+#   fm_modulator_intervals.append(128 * 12 * numpy.log2(numpy.sqrt(n)))
+#   fm_ratio_names.append('\\xC0""' + str(n))
 
 lookup_tables_string.append(('fm_ratio_names', fm_ratio_names))
 # lookup_tables_signed.append(('fm_carrier_corrections', fm_carrier_corrections))

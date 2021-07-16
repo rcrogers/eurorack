@@ -38,7 +38,7 @@
 
 namespace yarns {
 
-const char* const layout_values[] = {
+const char* const layout_values[LAYOUT_LAST] = {
   "1M", "2M", "4M", "2P", "4P", "2>", "4>", "8>", "4T", "4V", "31", "22", "21", "*2"
 };
 
@@ -50,12 +50,12 @@ const char* const boolean_values[] = {
   "OFF", "ON"
 };
 
-const char* const voicing_allocation_mode_values[] = {
+const char* const voicing_allocation_mode_values[VOICE_ALLOCATION_MODE_LAST] = {
   "MONO", "POLY", "CYCLIC", "RANDOM", "VELO", "SORTED", "U1 UNISON",
   "U2 UNISON 2", "STEAL MOST RECENT", "NICE"
 };
 
-const char* const sequencer_arp_direction_values[] = {
+const char* const sequencer_arp_direction_values[ARPEGGIATOR_DIRECTION_LAST] = {
   "LINEAR", "BOUNCE", "RANDOM", "ROTATE", "SUBROTATE"
 };
 
@@ -63,31 +63,31 @@ const char* const voicing_aux_cv_values[] = {
   "VELOCITY", "MODULATION", "AT", "BREATH", "PEDAL", "BEND", "VIBRATO LFO", "LFO", "ENVELOPE"
 };
 
-const char* const legato_mode_values[] = {
+const char* const legato_mode_values[LEGATO_MODE_LAST] = {
   "OFF", "AUTO PORTAMENTO", "ON"
 };
 
-const char* const voicing_oscillator_mode_values[] = {
+const char* const voicing_oscillator_mode_values[OSCILLATOR_MODE_LAST] = {
   "OFF", "DRONE", "ENVELOPED"
 };
 
-const char* const voicing_oscillator_shape_values[] = {
+const char* const voicing_oscillator_shape_values[OSC_SHAPE_FM] = {
   "*\xA2 NOISE NOTCH SVF",
   "*\xA0 NOISE LOW-PASS SVF",
   "*^ NOISE BAND-PASS SVF",
   "*\xA1 NOISE HIGH-PASS SVF",
-  "Z\xB0 LOW-PASS PULSE PHASE DISTORTION",
-  "Z\xB1 PEAKING PULSE PHASE DISTORTION",
-  "Z\xB2 BAND-PASS PULSE PHASE DISTORTION",
-  "Z\xB3 HIGH-PASS PULSE PHASE DISTORTION",
-  "Z\xC0 LOW-PASS SAW PHASE DISTORTION",
-  "Z\xC1 PEAKING SAW PHASE DISTORTION",
-  "Z\xC2 BAND-PASS SAW PHASE DISTORTION",
-  "Z\xC3 HIGH-PASS SAW PHASE DISTORTION",
+  "\x8C\xB0 LOW-PASS PULSE PHASE DISTORTION",
+  "\x8C\xB1 PEAKING PULSE PHASE DISTORTION",
+  "\x8C\xB2 BAND-PASS PULSE PHASE DISTORTION",
+  "\x8C\xB3 HIGH-PASS PULSE PHASE DISTORTION",
+  "\x88\xB0 LOW-PASS SAW PHASE DISTORTION",
+  "\x88\xB1 PEAKING SAW PHASE DISTORTION",
+  "\x88\xB2 BAND-PASS SAW PHASE DISTORTION",
+  "\x88\xB3 HIGH-PASS SAW PHASE DISTORTION",
   "\x8C\xA0 PULSE LOW-PASS SVF",
   "\x88\xA0 SAW LOW-PASS SVF",
-  "W\x8C PULSE WIDTH MOD",
-  "W\x88 SAW WIDTH MOD",
+  "\x8CW PULSE WIDTH MOD",
+  "\x88W SAW WIDTH MOD",
   "S$ SINE SYNC",
   "\x8C$ PULSE SYNC",
   "\x88$ SAW SYNC",
@@ -97,7 +97,7 @@ const char* const voicing_oscillator_shape_values[] = {
   "\x8E\x8E DIRAC COMB",
 };
 
-const char* const tremolo_shape_values[] = {
+const char* const tremolo_shape_values[LFO_SHAPE_LAST] = {
   "/\\",
   "|\\",
   "/|",
@@ -108,15 +108,15 @@ const char* const voicing_allocation_priority_values[] = {
   "LAST", "LOW", "HIGH", "FIRST"
 };
 
-const char* const trigger_shape_values[] = {
+const char* const trigger_shape_values[TRIGGER_SHAPE_LAST] = {
   "SQ", "LINEAR", "EXPO", "RING", "STEP", "BURST"
 };
 
-const char* const note_values[] = {
+const char* const note_values[12] = {
   "C ", "Db", "D", "Eb", "E ", "F ", "Gb", "G ", "Ab", "A ", "Bb", "B "
 };
 
-const char* const tuning_system_values[] = {
+const char* const tuning_system_values[TUNING_SYSTEM_LAST] = {
   "EQUAL TEMPERAMENT",
   "JUST INTONATION",
   "PYTHAGOREAN",
@@ -153,7 +153,7 @@ const char* const tuning_system_values[] = {
   "CUSTOM"
 };
 
-const char* const sequencer_play_mode_values[] = {
+const char* const sequencer_play_mode_values[PLAY_MODE_LAST] = {
   "MANUAL",
   "ARPEGGIATOR",
   "SEQUENCER",
@@ -164,11 +164,11 @@ const char* const sequencer_clock_quantization_values[] = {
   "STEP"
 };
 
-const char* const sequencer_input_response_values[] = {
+const char* const sequencer_input_response_values[SEQUENCER_INPUT_RESPONSE_LAST] = {
   "OFF", "TRANSPOSE", "REPLACE", "DIRECT"
 };
 
-const char* const sustain_mode_values[] = {
+const char* const sustain_mode_values[SUSTAIN_MODE_LAST] = {
   "OFF",
   "SUSTAIN",
   "SOSTENUTO",
@@ -426,7 +426,7 @@ const Setting Settings::settings_[] = {
   {
     "T\x88", "TRIG SHAPE",
     SETTING_DOMAIN_PART, { PART_VOICING_TRIGGER_SHAPE, 0 },
-    SETTING_UNIT_ENUMERATION, 0, 5, trigger_shape_values,
+    SETTING_UNIT_ENUMERATION, 0, TRIGGER_SHAPE_LAST - 1, trigger_shape_values,
     30, 21,
   },
   {
